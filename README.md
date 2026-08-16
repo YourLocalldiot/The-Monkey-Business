@@ -16,7 +16,7 @@ assets/fonts/         Font files — Disko Phonic + CDA Independence (see assets
 
 ## Planned pages
 
-The main nav has four sections: **Home**, **Tracker**, **Games**, **Profile**. Only Home exists so far — `tracker.html`, `games.html`, and `profile.html` are linked from the nav but not yet built.
+The main nav has four sections: **Home**, **Tracker**, **Simulation**, **Profile**. Only Home exists so far — `tracker.html`, `simulation.html`, and `profile.html` are linked from the nav but not yet built.
 
 ## Design system
 
@@ -27,7 +27,7 @@ The main nav has four sections: **Home**, **Tracker**, **Games**, **Profile**. O
 ## Not yet in this repo
 
 - Admin/CMS interface for managing lesson content (separate surface from the public site, not part of the 4-item nav)
-- Tracker, Games, Profile pages
+- Tracker, Simulation, Profile pages
 - Any backend, data, or auth
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
 

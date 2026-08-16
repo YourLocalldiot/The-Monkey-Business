@@ -220,7 +220,7 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 
 .greeting { display: flex; gap: 16px; align-items: flex-end; max-width: 620px; }
-.greeting-avatar { width: 56px; height: 56px; flex: none; }
+.greeting-avatar { width: 56px; height: 56px; flex: none; border-radius: 50%; object-fit: cover; display: block; background: var(--cream); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-20); }
 .bubble {
   background: var(--surface); border: 1.5px solid var(--ink-20);
   border-radius: var(--radius-m); padding: 14px 18px;
@@ -338,10 +338,34 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .pill-xs.hard { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
 .pill-xs.coin { background: var(--cream); color: var(--honey-ink); }
 
+/* ---------- Mobile: bottom tab bar ---------- */
 @media (max-width: 720px) {
   .app { flex-direction: column; }
-  .sidebar { width: auto; flex: none; position: relative; height: auto; flex-direction: row; align-items: center; }
-  .sidebar-foot, .sidebar-spacer, .lang-switch { display: none; }
-  nav.primary-nav { flex-direction: row; }
-  .canvas { padding: 24px 18px 48px; }
+
+  .sidebar {
+    position: fixed;
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: 100%; height: auto; flex: none;
+    flex-direction: row; align-items: stretch;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+    gap: 0;
+    border-top: 1.5px solid var(--ink-20);
+    box-shadow: 0 -6px 20px -10px rgba(77,50,43,.22);
+    z-index: 40;
+  }
+  .brand, .sidebar-spacer, .lang-switch, .sidebar-foot { display: none; }
+
+  nav.primary-nav { flex: 1; flex-direction: row; justify-content: space-around; gap: 0; }
+  .nav-item {
+    flex: 1; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; padding: 7px 2px 5px; font-size: 10.5px;
+    color: var(--ink-45); background: transparent;
+  }
+  .nav-item:hover { background: transparent; color: var(--ink-45); }
+  .nav-item[aria-current="page"] { background: transparent; color: var(--honey-ink); box-shadow: none; }
+  .nav-item[aria-current="page"] svg { stroke: var(--honey-ink); }
+
+  .canvas { padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); }
 }
