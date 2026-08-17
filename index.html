@@ -8,6 +8,15 @@
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="assets/js/theme.js" defer></script>
 </head>
 <body>
 
@@ -54,9 +63,15 @@
 
     <div class="sidebar-spacer"></div>
 
-    <div class="lang-switch" role="group" aria-label="Language">
-      <button type="button" aria-pressed="true">EN</button>
-      <button type="button" aria-pressed="false">VI</button>
+    <div class="theme-switch" role="group" aria-label="Theme">
+      <button type="button" data-theme-choice="light" aria-pressed="true">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2 12h2.4M19.6 12H22M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
+        Light
+      </button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.7A8 8 0 1 1 9.3 4a6.4 6.4 0 0 0 10.7 10.7Z"/></svg>
+        Dark
+      </button>
     </div>
 
     <p class="sidebar-foot">Educational content only.<br/>Nothing here is investment advice.</p>

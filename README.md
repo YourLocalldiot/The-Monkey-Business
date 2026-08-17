@@ -12,6 +12,8 @@ This repo currently holds the desktop **Home** page as a static HTML/CSS mockup 
 index.html          Home page
 css/styles.css       Design tokens (colors, type, spacing) + all component styles
 assets/fonts/         Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
+assets/images/         Logo + derived favicon/avatar crops
+assets/js/theme.js     Light/dark theme switch (reads + writes localStorage, no framework)
 ```
 
 ## Planned pages
@@ -22,7 +24,8 @@ The main nav has four sections: **Home**, **Tracker**, **Simulation**, **Profile
 
 - **Colors** — `#4d322b` ink, `#ffe8ac` cream, `#b9e7ec` sky, `#f8fdff` paper, plus a `#e79b34` honey accent for primary actions. All defined as CSS custom properties in `css/styles.css`, with a dark-mode palette alongside.
 - **Type** — **Disko Phonic** for the brand wordmark only; **CDA Independence** (Deck weights) for all headings and (Text weights) for body copy. See `assets/fonts/README.md` — it flags a licensing constraint on Disko Phonic that affects whether this repo can go public as-is.
-- **i18n** — the sidebar has an EN/VI language toggle in place; no actual translation wiring yet (static English copy only).
+- **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
+- **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief; it needs a new home — worth deciding whether that's a settings/profile screen, a top-bar control, or something else before more pages are built. Copy is static English only for now.
 
 ## Not yet in this repo
 
