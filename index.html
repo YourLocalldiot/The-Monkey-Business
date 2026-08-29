@@ -55,10 +55,6 @@
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="10" rx="4"/><path d="M8 13h.01M6.5 11.5v3M5 13h3"/><circle cx="15.5" cy="11.7" r=".9" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.7" r=".9" fill="currentColor" stroke="none"/></svg>
         Simulation
       </a>
-      <a class="nav-item" href="profile.html">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5c1.4-3.2 4-4.8 7.2-4.8s5.8 1.6 7.2 4.8"/></svg>
-        Profile
-      </a>
     </nav>
 
     <div class="sidebar-spacer"></div>
@@ -74,7 +70,18 @@
       </button>
     </div>
 
-    <p class="sidebar-foot">Educational content only.<br/>Nothing here is investment advice.</p>
+    <div class="sidebar-account">
+      <a class="nav-item" href="profile.html">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5c1.4-3.2 4-4.8 7.2-4.8s5.8 1.6 7.2 4.8"/></svg>
+        Profile
+      </a>
+      <!-- No auth wired up yet — always show the logged-out state. Swap this
+           for the Profile link (or hide it) once a real session exists. -->
+      <a class="login-btn" href="login.html">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Log in
+      </a>
+    </div>
   </aside>
 
   <main class="canvas">
@@ -257,6 +264,8 @@
           </section>
         </aside>
       </div>
+
+      <p class="canvas-foot">Educational content only. Nothing here is investment advice.</p>
 
     </div>
   </main>

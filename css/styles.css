@@ -212,12 +212,24 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .theme-switch button svg { flex: none; }
 .theme-switch button[aria-pressed="true"] { background: var(--sidebar-ink); color: var(--sidebar-bg); }
 
-.sidebar-foot { font-size: 11px; color: var(--sidebar-ink-60); line-height: 1.5; padding: 0 4px; }
-.sidebar-foot a { text-decoration: underline; text-underline-offset: 2px; }
+.sidebar-account {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-top: 16px; border-top: 1px solid rgba(248,236,217,.12);
+}
+.login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--honey); color: var(--honey-ink); text-decoration: none;
+  font-weight: 700; font-size: 13.5px; padding: 10px 14px; border-radius: 999px;
+  box-shadow: var(--shadow-sm); transition: transform .15s ease;
+}
+.login-btn:hover { transform: translateY(-1px); }
+.login-btn:active { transform: translateY(0); }
 
 /* ---------- Canvas ---------- */
 .canvas { flex: 1; min-width: 0; padding: 34px 44px 64px; }
 .canvas-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+
+.canvas-foot { font-size: 12px; color: var(--ink-45); text-align: center; padding-top: 4px; }
 
 .topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 
@@ -340,6 +352,36 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .pill-xs.hard { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
 .pill-xs.coin { background: var(--cream); color: var(--honey-ink); }
 
+/* ---------- Auth pages (login / signup) ---------- */
+.auth-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.auth-shell { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.auth-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.auth-brand-mark { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-20); }
+.auth-brand span { font-family: var(--font-wordmark); font-size: 16px; }
+
+.auth-card { width: 100%; background: var(--surface); border: 1.5px solid var(--ink-20); border-radius: var(--radius-l); box-shadow: var(--shadow-lg); padding: 32px 28px; }
+.auth-card h1 { font-size: 22px; }
+.auth-sub { font-size: 13.5px; color: var(--ink-70); margin-top: 6px; }
+
+.auth-form { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink-70); }
+.field input {
+  font-family: var(--font-body); font-weight: 400; font-size: 15px;
+  padding: 11px 13px; border-radius: var(--radius-s); border: 1.5px solid var(--ink-20);
+  background: var(--paper); color: var(--ink);
+}
+.field input::placeholder { color: var(--ink-45); }
+.field input:focus-visible { outline: 2.5px solid var(--honey); outline-offset: 1px; border-color: transparent; }
+.field-hint { font-size: 11.5px; font-weight: 600; color: var(--ink-45); }
+
+.auth-submit { width: 100%; justify-content: center; margin-top: 4px; border: none; }
+
+.auth-switch { text-align: center; font-size: 13.5px; margin-top: 18px; color: var(--ink-70); }
+.auth-switch a { color: var(--honey-ink); font-weight: 700; text-decoration: none; }
+.auth-switch a:hover { text-decoration: underline; }
+
+.auth-note { text-align: center; font-size: 11.5px; color: var(--ink-45); margin-top: 14px; }
+
 /* ---------- Mobile: bottom tab bar ---------- */
 @media (max-width: 720px) {
   .app { flex-direction: column; }
@@ -357,9 +399,12 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
     box-shadow: 0 -6px 20px -10px rgba(77,50,43,.22);
     z-index: 40;
   }
-  .brand, .sidebar-spacer, .theme-switch, .sidebar-foot { display: none; }
+  .brand, .sidebar-spacer, .theme-switch, .login-btn { display: none; }
 
-  nav.primary-nav { flex: 1; flex-direction: row; justify-content: space-around; gap: 0; }
+  /* Unwrap these two containers so Home/Tracker/Simulation (inside
+     nav.primary-nav) and Profile (inside sidebar-account) become one
+     evenly-spaced row of four tabs instead of two separate groups. */
+  nav.primary-nav, .sidebar-account { display: contents; }
   .nav-item {
     flex: 1; flex-direction: column; align-items: center; justify-content: center;
     gap: 3px; padding: 7px 2px 5px; font-size: 10.5px;

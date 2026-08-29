@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up — The Monkey Business</title>
+  <meta name="description" content="Create a The Monkey Business account.">
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="assets/js/theme.js" defer></script>
+</head>
+<body class="auth-body">
+
+<div class="auth-shell">
+  <a class="auth-brand" href="index.html">
+    <img class="auth-brand-mark" src="assets/images/logo-mark.png" alt="">
+    <span>The Monkey Business</span>
+  </a>
+
+  <div class="auth-card">
+    <h1>Sign up</h1>
+    <p class="auth-sub">Start learning and earning banamoney today.</p>
+
+    <!-- No backend yet: this form doesn't submit anywhere real.
+         See docs/supabase-setup.md for how this wires up to Supabase Auth. -->
+    <form class="auth-form" action="#" method="post">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" placeholder="At least 8 characters" autocomplete="new-password" minlength="8" required>
+        <span class="field-hint">At least 8 characters.</span>
+      </label>
+      <button type="submit" class="btn-primary auth-submit">Sign up</button>
+    </form>
+
+    <p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p>
+    <p class="auth-note">Authentication isn't connected yet — this is a placeholder for the real sign-in flow.</p>
+  </div>
+</div>
+
+</body>
+</html>
