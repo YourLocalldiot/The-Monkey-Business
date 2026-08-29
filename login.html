@@ -17,6 +17,9 @@
     })();
   </script>
   <script src="assets/js/theme.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+  <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/login.js" defer></script>
 </head>
 <body class="auth-body">
 
@@ -30,8 +33,6 @@
     <h1>Log in</h1>
     <p class="auth-sub">Welcome back — pick up where you left off.</p>
 
-    <!-- No backend yet: this form doesn't submit anywhere real.
-         See docs/supabase-setup.md for how this wires up to Supabase Auth. -->
     <form class="auth-form" action="#" method="post">
       <label class="field">
         <span>Email</span>
@@ -44,8 +45,9 @@
       <button type="submit" class="btn-primary auth-submit">Log in</button>
     </form>
 
-    <p class="auth-switch">Don't have an account yet? <a href="signup.html">Sign up</a></p>
-    <p class="auth-note">Authentication isn't connected yet — this is a placeholder for the real sign-in flow.</p>
+    <p class="auth-message" role="alert" hidden></p>
+
+    <a class="auth-switch" href="signup.html">Don't have an account yet? <strong>Sign up</strong></a>
   </div>
 </div>
 

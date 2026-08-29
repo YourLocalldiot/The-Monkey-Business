@@ -190,6 +190,7 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   transition: background .15s ease, color .15s ease;
 }
 .nav-item svg { flex: none; }
+.nav-icon { width: 22px; height: 22px; object-fit: contain; flex: none; }
 .nav-item:hover { background: rgba(248,236,217,.08); color: var(--sidebar-ink); }
 .nav-item[aria-current="page"] {
   background: var(--honey); color: var(--honey-ink);
@@ -224,6 +225,10 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 }
 .login-btn:hover { transform: translateY(-1px); }
 .login-btn:active { transform: translateY(0); }
+/* Guest is the assumed default until assets/js/auth.js confirms a session
+   (see the comment in index.html) — keeps a slow session check from
+   flashing the Profile link at someone who isn't actually signed in. */
+.profile-link { display: none; }
 
 /* ---------- Canvas ---------- */
 .canvas { flex: 1; min-width: 0; padding: 34px 44px 64px; }
@@ -257,8 +262,9 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   font-weight: 700; font-size: 14px; box-shadow: var(--shadow-sm);
 }
 .chip svg { flex: none; }
-.chip.streak svg { stroke: var(--bad); }
-.chip.coin svg { stroke: var(--honey-ink); fill: var(--honey); }
+.chip-icon { object-fit: contain; flex: none; }
+.chip-icon.icon-streak { width: 20px; height: 20px; }
+.chip-icon.icon-coin { height: 18px; width: auto; }
 .avatar-btn {
   width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--surface);
   box-shadow: 0 0 0 1.5px var(--ink-20); padding: 0; background: var(--cream); overflow: hidden;
@@ -376,11 +382,15 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 
 .auth-submit { width: 100%; justify-content: center; margin-top: 4px; border: none; }
 
-.auth-switch { text-align: center; font-size: 13.5px; margin-top: 18px; color: var(--ink-70); }
-.auth-switch a { color: var(--honey-ink); font-weight: 700; text-decoration: none; }
-.auth-switch a:hover { text-decoration: underline; }
+.auth-message { text-align: center; font-size: 13px; font-weight: 600; color: var(--ink-70); margin-top: 16px; }
+.auth-message.is-error { color: var(--bad); }
 
-.auth-note { text-align: center; font-size: 11.5px; color: var(--ink-45); margin-top: 14px; }
+.auth-switch {
+  display: block; text-align: center; font-size: 13.5px; margin-top: 18px;
+  color: var(--ink-70); text-decoration: none;
+}
+.auth-switch strong { color: var(--honey-ink); font-weight: 700; }
+.auth-switch:hover strong { text-decoration: underline; }
 
 /* ---------- Mobile: bottom tab bar ---------- */
 @media (max-width: 720px) {
