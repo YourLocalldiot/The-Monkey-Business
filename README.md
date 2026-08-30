@@ -22,7 +22,7 @@ assets/js/auth.js            Toggles the sidebar between "Log in" and "Profile" 
 assets/js/login.js            Wires login.html's form to supabase.auth.signInWithPassword
 assets/js/signup.js           Wires signup.html's form to supabase.auth.signUp
 assets/js/moderator.js        Access-gates and drives moderator.html
-docs/supabase-setup.md    Full walkthrough — the SQL in it still needs to be run in your Supabase project
+docs/supabase-sql.md     The SQL to run in your Supabase project (table, RLS, triggers) — not run yet
 ```
 
 ## Planned pages
@@ -33,7 +33,7 @@ The main nav has three sections: **Home**, **Tracker**, **Simulation**. **Profil
 
 - **Colors** — `#4d322b` ink, `#ffe8ac` cream, `#b9e7ec` sky, `#f8fdff` paper, plus a `#e79b34` honey accent for primary actions. All defined as CSS custom properties in `css/styles.css`, with a dark-mode palette alongside.
 - **Type** — **Disko Phonic** for the brand wordmark only; **CDA Independence** (Deck weights) for all headings and (Text weights) for body copy. See `assets/fonts/README.md` — it flags a licensing constraint on Disko Phonic that affects whether this repo can go public as-is.
-- **Icons** — Home/Tracker/Simulation nav icons and the streak/currency (banana) stat-chip icons are the supplied illustrated PNG set (`assets/images/`), matching the palette. Profile's nav icon is still a plain inline SVG (no PNG was supplied for it).
+- **Icons** — Home/Tracker/Simulation/Profile nav icons and the streak/currency (banana) stat-chip icons are all the supplied illustrated PNG set (`assets/images/`), matching the palette.
 - **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
 - **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief; it needs a new home. Copy is static English only for now.
 - **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. The old sidebar disclaimer ("Educational content only...") moved to the bottom of the Home page's main content instead of being dropped.
@@ -42,12 +42,12 @@ The main nav has three sections: **Home**, **Tracker**, **Simulation**. **Profil
 
 - Signup collects a **username** (3–24 chars, letters/numbers/underscore, must be unique) alongside email + password.
 - Every new account starts at **0 coins and a 0-day streak** — enforced by the database column defaults, not just the UI.
-- Two roles exist: `user` (default) and `moderator`. There's no self-serve way to become a moderator — you promote someone with a one-line SQL command (see `docs/supabase-setup.md` step 8).
+- Two roles exist: `user` (default) and `moderator`. There's no self-serve way to become a moderator — you promote someone with a one-line SQL command (see `docs/supabase-sql.md`).
 - A moderator can open `moderator.html` to look up any user by username and edit their coins/streak. This is enforced by Row Level Security + a database trigger, not just a client-side check — a non-moderator's edit request is silently rejected by Postgres even if they bypass the UI entirely.
 
 ## Not yet in this repo
 
-- **The actual SQL from `docs/supabase-setup.md` hasn't been run against the project yet** — I have no tool that can execute it for you. Until it is, sign-up/login work (Auth is built into Supabase), but there's no `profiles` table, so username/coins/streak/roles don't exist and `moderator.html` won't find anyone.
+- **The actual SQL from `docs/supabase-sql.md` hasn't been run against the project yet** — I have no tool that can execute it for you. Until it is, sign-up/login work (Auth is built into Supabase), but there's no `profiles` table, so username/coins/streak/roles don't exist and `moderator.html` won't find anyone.
 - Admin/CMS interface for managing lesson content (separate surface from the public site)
 - Tracker, Simulation, Profile pages
 - Native mobile app (a future phase — the design tokens here are meant to carry over)

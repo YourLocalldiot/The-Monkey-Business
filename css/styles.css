@@ -196,7 +196,6 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   background: var(--honey); color: var(--honey-ink);
   box-shadow: var(--shadow-sm);
 }
-.nav-item[aria-current="page"] svg { stroke: var(--honey-ink); }
 
 .sidebar-spacer { flex: 1; }
 
@@ -426,7 +425,6 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   }
   .nav-item:hover { background: transparent; color: var(--ink-45); }
   .nav-item[aria-current="page"] { background: transparent; color: var(--honey-ink); box-shadow: none; }
-  .nav-item[aria-current="page"] svg { stroke: var(--honey-ink); }
 
   .canvas { padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); }
 }

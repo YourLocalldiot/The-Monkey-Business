@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     submitBtn.disabled = true;
 
     // The username lands in auth.users' metadata; the handle_new_user()
-    // trigger (see docs/supabase-setup.md) copies it onto the new
+    // trigger (see docs/supabase-sql.md) copies it onto the new
     // public.profiles row, which is also where coins/streak start at 0.
     var { data, error } = await window.sb.auth.signUp({
       email: form.email.value.trim(),

@@ -1,6 +1,6 @@
 // Shared Supabase client. Loaded on every page that needs auth (index.html,
 // login.html, signup.html, and any future page with the sidebar/account UI).
-// The anon key is meant to be public — see docs/supabase-setup.md — access
+// The anon key is meant to be public — see docs/supabase-sql.md — access
 // control is enforced by Row Level Security policies on the database side,
 // not by keeping this key secret.
 (function () {

@@ -1,6 +1,6 @@
 // Gate + logic for moderator.html. The check here is UX only — the real
 // security boundary is the Row Level Security policies on public.profiles
-// (see docs/supabase-setup.md): a non-moderator's update simply gets
+// (see docs/supabase-sql.md): a non-moderator's update simply gets
 // rejected by the database no matter what this page does.
 document.addEventListener('DOMContentLoaded', async function () {
   var message = document.querySelector('.auth-message');
