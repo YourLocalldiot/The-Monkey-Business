@@ -8,10 +8,11 @@ You've already got a `profiles` table with real signups in it — this is writte
 
 | Column | Status |
 |---|---|
-| `id`, `display_name`, `avatar_choice`, `coins`, `streak_days`, `best_streak_days`, `created_at` | Fine as-is — no changes needed. |
+| `id`, `avatar_choice`, `coins`, `streak_days`, `best_streak_days`, `created_at` | Fine as-is — no changes needed. |
 | `username` | **Needs fixing.** Column exists but is empty on both existing rows, and has no `unique`/`not null` constraint — so nothing stops a duplicate or a signup with no username at all. |
 | `role` | **Needs fixing.** Same issue — empty on both rows, no default, no constraint limiting it to `'user'`/`'moderator'`. |
 | `language` | **Missing entirely.** Not required right now (nothing in the app reads/writes it yet — i18n isn't wired up). Optional add-on at the bottom if you want it ready for later. |
+| `display_name` | You've said you want this gone — see "Dropping `display_name`" below. **Run that only after** the block below, since the block still uses it to backfill `username` on your two existing rows. |
 
 The block below fixes `username` and `role` by backfilling from `display_name` (both your existing rows already have display_name values that look like the intended username — double check them, and update manually first if either looks wrong) and then locking the constraints down. It's safe to run even if some of it was already applied — every statement either checks first or is written to not error on a second run.
 
@@ -125,6 +126,39 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 ```
+
+## Dropping `display_name`
+
+**Run this only after the block above has succeeded** — it's the backfill source for `username` on your existing rows. Once you've confirmed (see the SELECT below, or just check the table in the dashboard) that every row has a real `username`, it's safe to drop:
+
+```sql
+alter table public.profiles drop column if exists display_name;
+```
+
+Nothing in the app code reads or writes `display_name` — it was only ever a schema field, so dropping it needs no other changes on this end.
+
+## Troubleshooting: `username` is still `NULL` after a new signup
+
+This means the `username` you typed in the form isn't making it into the `profiles` row. There are two possible places it's getting lost — check them in order:
+
+**1. Is the client actually sending it?** Sign up with a brand-new test email, then run:
+
+```sql
+select id, email, raw_user_meta_data from auth.users order by created_at desc limit 3;
+```
+
+Look at `raw_user_meta_data` for that row.
+
+- **If it shows `{"username": "whatever_you_typed"}`** — the client is fine. The problem is the trigger (step 2 below).
+- **If `raw_user_meta_data` is empty or has no `username` key** — the browser is running stale JavaScript. Hard-refresh `signup.html` (Ctrl+Shift+R) to bypass the cache, and confirm `assets/js/signup.js` on disk actually contains `options: { data: { username: username } }` inside the `signUp()` call.
+
+**2. Is the trigger current?** Run this to see the trigger function Postgres is actually using right now:
+
+```sql
+select prosrc from pg_proc where proname = 'handle_new_user';
+```
+
+If the result does **not** contain `raw_user_meta_data`, it's an old version of the function (e.g. one that only ever set `display_name` from the email). Re-run just section 6 of the main block above (the `create or replace function public.handle_new_user()` and the `drop trigger` / `create trigger` right after it) — `create or replace` will overwrite whatever's currently installed, no matter how it got there.
 
 ## Optional: add `language` back
 

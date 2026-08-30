@@ -10,8 +10,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function reflectSession(session) {
     var loggedIn = !!session;
-    if (loginBtn) loginBtn.style.display = loggedIn ? 'none' : '';
-    if (profileLink) profileLink.style.display = loggedIn ? '' : 'none';
+    // Explicit values on both sides — `.profile-link` is hidden via a
+    // stylesheet rule (see CSS), and setting style.display = '' only
+    // clears the inline override, which falls right back to that rule
+    // instead of showing the element.
+    if (loginBtn) loginBtn.style.display = loggedIn ? 'none' : 'flex';
+    if (profileLink) profileLink.style.display = loggedIn ? 'flex' : 'none';
   }
 
   window.sb.auth.getSession().then(function (result) {
