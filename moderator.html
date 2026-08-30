@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderator tools — The Monkey Business</title>
+  <meta name="description" content="Look up a user and adjust their coins or streak.">
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="assets/js/theme.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+  <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/moderator.js" defer></script>
+</head>
+<body class="auth-body">
+
+<div class="auth-shell">
+  <a class="auth-brand" href="index.html">
+    <img class="auth-brand-mark" src="assets/images/logo-mark.png" alt="">
+    <span>The Monkey Business</span>
+  </a>
+
+  <div class="auth-card">
+    <h1>Moderator tools</h1>
+    <p class="auth-sub">Look up a user by username to adjust their coins or streak.</p>
+
+    <p class="auth-message" role="status" hidden></p>
+
+    <form class="auth-form" id="lookupForm">
+      <label class="field">
+        <span>Username</span>
+        <input type="text" name="username" placeholder="khi_gioi_kinh_te" required>
+      </label>
+      <button type="submit" class="btn-primary auth-submit">Look up</button>
+    </form>
+
+    <div class="mod-result" id="modResult" hidden>
+      <p class="mod-user">Editing <strong id="modUsername"></strong></p>
+      <form class="auth-form" id="editForm">
+        <label class="field">
+          <span>Currency (coins)</span>
+          <input type="number" name="coins" min="0" step="1" required>
+        </label>
+        <label class="field">
+          <span>Streak (days)</span>
+          <input type="number" name="streak" min="0" step="1" required>
+        </label>
+        <button type="submit" class="btn-primary auth-submit">Save changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

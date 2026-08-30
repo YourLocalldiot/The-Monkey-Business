@@ -390,6 +390,10 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   color: var(--ink-70); text-decoration: none;
 }
 .auth-switch strong { color: var(--honey-ink); font-weight: 700; }
+
+.mod-result { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--ink-20); }
+.mod-user { font-size: 14px; color: var(--ink-70); margin-bottom: 14px; }
+.mod-user strong { color: var(--honey-ink); }
 .auth-switch:hover strong { text-decoration: underline; }
 
 /* ---------- Mobile: bottom tab bar ---------- */

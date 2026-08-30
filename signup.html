@@ -35,6 +35,11 @@
 
     <form class="auth-form" action="#" method="post">
       <label class="field">
+        <span>Username</span>
+        <input type="text" name="username" placeholder="khi_gioi_kinh_te" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" required>
+        <span class="field-hint">3–24 characters: letters, numbers, underscores only.</span>
+      </label>
+      <label class="field">
         <span>Email</span>
         <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
       </label>
