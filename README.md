@@ -2,7 +2,7 @@
 
 Khỉ's own online diary — a platform teaching Vietnamese high schoolers investing and economics through video playlists and games. Learn and practice freely, zero judgment: Khỉ is a friend, not a teacher.
 
-This repo currently holds the desktop **Home** page, plus **Log in** / **Sign up** / **Moderator tools** pages, as a static site wired to a real Supabase backend for auth — the first pieces of the site, built for review before the rest of the pages and the content/admin CMS work.
+This repo currently holds the desktop **Home** and **Simulation** pages, plus **Log in** / **Sign up** / **Moderator tools** pages, as a static site wired to a real Supabase backend for auth — the first pieces of the site, built for review before the rest of the pages and the content/admin CMS work.
 
 > **Keep this repo private for now.** The wordmark font (Disko Phonic) is licensed for personal use only — see `assets/fonts/README.md` before making this repo or any site built from it public.
 
@@ -10,24 +10,26 @@ This repo currently holds the desktop **Home** page, plus **Log in** / **Sign up
 
 ```
 index.html               Home page
+simulation.html            Paper-trading stock simulator (banana-coins, sandboxed — see Design system)
 login.html                Log in (email + password)
 signup.html                Sign up (username + email + password, min. 8 characters)
 moderator.html              Look up a user by username, edit their coins/streak (moderator-only)
 css/styles.css            Design tokens (colors, type, spacing) + all component styles
 assets/fonts/              Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
-assets/images/             Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency)
+assets/images/             Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile)
 assets/js/theme.js          Light/dark theme switch (localStorage + prefers-color-scheme)
 assets/js/supabase-client.js  The one shared Supabase client (project URL + anon key live here)
 assets/js/auth.js            Toggles the sidebar between "Log in" and "Profile" based on the real session
 assets/js/login.js            Wires login.html's form to supabase.auth.signInWithPassword
 assets/js/signup.js           Wires signup.html's form to supabase.auth.signUp
 assets/js/moderator.js        Access-gates and drives moderator.html
+assets/js/simulation.js       Drives simulation.html — its own localStorage state, no backend involved
 docs/supabase-sql.md     The SQL to run in your Supabase project (table, RLS, triggers) — not run yet
 ```
 
 ## Planned pages
 
-The main nav has three sections: **Home**, **Tracker**, **Simulation**. **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. `tracker.html`, `simulation.html`, and `profile.html` are linked but not yet built. **Moderator tools** (`moderator.html`) intentionally isn't in the nav at all — same reasoning as the future admin/CMS area: it's a separate, non-public surface.
+The main nav has three sections: **Home**, **Tracker**, **Simulation**. **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. `tracker.html` and `profile.html` are linked but not yet built. **Moderator tools** (`moderator.html`) intentionally isn't in the nav at all — same reasoning as the future admin/CMS area: it's a separate, non-public surface.
 
 ## Design system
 
@@ -45,11 +47,17 @@ The main nav has three sections: **Home**, **Tracker**, **Simulation**. **Profil
 - Two roles exist: `user` (default) and `moderator`. There's no self-serve way to become a moderator — you promote someone with a one-line SQL command (see `docs/supabase-sql.md`).
 - A moderator can open `moderator.html` to look up any user by username and edit their coins/streak. This is enforced by Row Level Security + a database trigger, not just a client-side check — a non-moderator's edit request is silently rejected by Postgres even if they bypass the UI entirely.
 
+## Simulation (paper trading)
+
+- `simulation.html` is a small stock-trading game: four companies (reusing the names from the Tracker mockup — Vinamilk, FPT, Hoa Phat, Mobile World) with prices in 🍌 banana-coins that move when you click "Next day." Buy/sell, watch a sparkline, track net worth and P&L.
+- Its starting 🍌10,000 balance and all holdings live in `localStorage` (`assets/js/simulation.js`), **not** in Supabase and **not** the same balance as the real "coins" shown elsewhere in the app. That's deliberate, not a shortcut: the real `profiles.coins` column is locked by the anti-cheat trigger in `docs/supabase-sql.md` so users can't self-edit it, and a trading game needs to freely add/subtract balance on every trade. Keeping it sandboxed avoids reopening that hole.
+- "Reset simulation" wipes the local save and starts over at day 1 — it never touches a real account.
+
 ## Not yet in this repo
 
 - **The actual SQL from `docs/supabase-sql.md` hasn't been run against the project yet** — I have no tool that can execute it for you. Until it is, sign-up/login work (Auth is built into Supabase), but there's no `profiles` table, so username/coins/streak/roles don't exist and `moderator.html` won't find anyone.
 - Admin/CMS interface for managing lesson content (separate surface from the public site)
-- Tracker, Simulation, Profile pages
+- Tracker, Profile pages
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
 
 ## Local preview
