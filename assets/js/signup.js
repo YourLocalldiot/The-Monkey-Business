@@ -19,16 +19,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var username = form.username.value.trim();
+    var firstName = form.first_name.value.trim();
+    var lastName = form.last_name.value.trim();
     var submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
-    // The username lands in auth.users' metadata; the handle_new_user()
-    // trigger (see docs/supabase-sql.md) copies it onto the new
-    // public.profiles row, which is also where coins/streak start at 0.
+    // These land in auth.users' metadata; the handle_new_user() trigger
+    // (see docs/supabase-sql.md) copies them onto the new public.profiles
+    // row, which is also where coins/streak start at 0. emailRedirectTo
+    // sends the confirmation-email link to the login page instead of
+    // Supabase's default — it must also be added to Auth > URL
+    // Configuration > Redirect URLs in the dashboard, or Supabase will
+    // ignore it and fall back to the Site URL.
     var { error } = await window.sb.auth.signUp({
       email: form.email.value.trim(),
       password: form.password.value,
-      options: { data: { username: username } }
+      options: {
+        data: { username: username, first_name: firstName, last_name: lastName },
+        emailRedirectTo: window.location.origin + '/login.html'
+      }
     });
 
     submitBtn.disabled = false;

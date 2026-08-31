@@ -1,7 +1,21 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
   var form = document.querySelector('.auth-form');
   var message = document.querySelector('.auth-message');
   if (!form) return;
+
+  // Covers two cases: someone already logged in who lands on this page
+  // by mistake, and — the reason this exists — an email-confirmation
+  // link. Supabase's confirmation redirect lands here with the new
+  // session already established from the URL, so this sends them
+  // straight on to Home instead of showing them a login form for an
+  // account they're already signed into.
+  if (window.sb) {
+    var existing = await window.sb.auth.getSession();
+    if (existing.data.session) {
+      window.location.href = 'index.html';
+      return;
+    }
+  }
 
   function showMessage(text, isError) {
     if (!message) return;

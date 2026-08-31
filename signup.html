@@ -34,6 +34,16 @@
     <p class="auth-sub">Start learning and earning banamoney today.</p>
 
     <form class="auth-form" action="#" method="post">
+      <div class="field-row">
+        <label class="field">
+          <span>First name</span>
+          <input type="text" name="first_name" placeholder="Linh" autocomplete="given-name" required>
+        </label>
+        <label class="field">
+          <span>Last name</span>
+          <input type="text" name="last_name" placeholder="Nguyễn" autocomplete="family-name" required>
+        </label>
+      </div>
       <label class="field">
         <span>Username</span>
         <input type="text" name="username" placeholder="khi_gioi_kinh_te" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" required>
