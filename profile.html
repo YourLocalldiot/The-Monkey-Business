@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Simulation — The Monkey Business</title>
-  <meta name="description" content="Practice stock trading with pretend banana-coins — zero risk, zero real money.">
+  <title>Profile — The Monkey Business</title>
+  <meta name="description" content="Your account, stats, and sign-out.">
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/auth.js" defer></script>
-  <script src="assets/js/simulation.js" defer></script>
+  <script src="assets/js/profile.js" defer></script>
 </head>
 <body>
 
@@ -42,7 +42,7 @@
         <img class="nav-icon" src="assets/images/tracker.png" alt="">
         Tracker
       </a>
-      <a class="nav-item" href="simulation.html" aria-current="page">
+      <a class="nav-item" href="simulation.html">
         <img class="nav-icon" src="assets/images/simulator.png" alt="">
         Simulation
       </a>
@@ -68,7 +68,7 @@
     </div>
 
     <div class="sidebar-account">
-      <a class="nav-item profile-link" href="profile.html">
+      <a class="nav-item profile-link" href="profile.html" aria-current="page">
         <img class="nav-icon" src="assets/images/profile.png" alt="">
         Profile
       </a>
@@ -83,66 +83,51 @@
     <div class="canvas-inner">
 
       <div class="topline">
-        <div class="greeting" style="max-width: none;">
-          <div>
-            <span class="eyebrow">Paper trading · Practice cash, not your real banamoney</span>
-            <h2 class="continue-title" style="margin-top: 6px;">Simulation</h2>
-          </div>
-        </div>
-
-        <div class="stat-cluster">
-          <div class="chip coin">
-            <img class="chip-icon icon-coin" src="assets/images/currency.png" alt="">
-            <span class="tnum" id="simCash">10,000</span>
-          </div>
-          <div class="chip" id="simPnlChip">
-            <span class="tnum" id="simPnl">+0 (+0.0%)</span>
-          </div>
-          <button class="btn-primary" id="nextDayBtn" type="button">
-            Next day
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-          </button>
+        <div>
+          <span class="eyebrow">Your account</span>
+          <h1 class="continue-title" style="margin-top: 6px;">Profile</h1>
         </div>
       </div>
 
-      <p class="auth-message" id="simMessage" role="alert" hidden></p>
+      <p class="auth-message" id="profileMessage" role="alert" hidden></p>
 
       <div class="grid">
         <div class="main-col" style="display:flex; flex-direction:column; gap:22px;">
 
-          <section class="card">
-            <div class="trail-head">
-              <h2>Market · Day <span id="simDay" class="tnum">1</span></h2>
-              <span>Prices in 🍌 banana-coins</span>
+          <section class="card" id="profileCard" hidden>
+            <div class="profile-head">
+              <img class="profile-avatar" src="assets/images/logo-mark.png" alt="">
+              <div>
+                <h2 class="continue-title" style="font-size: 20px;" id="profileName"></h2>
+                <p class="meta-text" id="profileUsername"></p>
+              </div>
             </div>
-            <div id="stockList"></div>
+          </section>
+
+          <section class="card">
+            <div class="trail-head"><h2>Stats</h2></div>
+            <div class="stat-cluster" style="margin-top: 12px;">
+              <div class="chip streak">
+                <img class="chip-icon icon-streak" src="assets/images/streak.png" alt="">
+                <span class="tnum" id="profileStreak">0</span>
+              </div>
+              <div class="chip coin">
+                <img class="chip-icon icon-coin" src="assets/images/currency.png" alt="">
+                <span class="tnum" id="profileCoins">0</span>
+              </div>
+            </div>
           </section>
 
         </div>
 
         <aside class="rail">
-          <section class="card rail-card">
-            <div class="goal-top">
-              <span class="eyebrow">Net worth</span>
-              <span class="goal-num tnum" id="simNetWorth">🍌10,000</span>
-            </div>
-            <p class="goal-caption">Cash + holdings, marked to today's prices.</p>
-          </section>
-
           <section class="card list-card">
-            <div class="list-head"><h2>Your holdings</h2></div>
-            <div id="holdingsList"></div>
-          </section>
-
-          <section class="card list-card">
-            <div class="list-head"><h2>Start over</h2></div>
-            <p class="goal-caption">Resets to a fresh 🍌10,000 and day 1 — doesn't touch your real banamoney.</p>
-            <button class="btn-primary auth-submit" id="resetBtn" type="button" style="margin-top: 12px; background: var(--bad); color: var(--surface);">Reset simulation</button>
+            <div class="list-head"><h2>Account</h2></div>
+            <p class="goal-caption">Signed in on this device.</p>
+            <button class="btn-primary auth-submit" id="logoutBtn" type="button" style="margin-top: 14px; background: var(--bad); color: var(--surface);">Log out</button>
           </section>
         </aside>
       </div>
-
-      <p class="canvas-foot">Practice money only — this never touches your real banamoney balance. Educational content only, nothing here is investment advice.</p>
 
     </div>
   </main>

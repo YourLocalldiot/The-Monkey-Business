@@ -23,10 +23,28 @@ where p.id = u.id
 
 update public.profiles set role = 'user' where role is null or role = '';
 
+-- first_name/last_name are required in signup.html, but that's only
+-- ever enforced client-side — a direct API call could still leave them
+-- blank. Backfill any nulls to '' (same reasoning as username/role
+-- above) so the not-null constraints below don't fail on old rows.
+update public.profiles p
+set first_name = coalesce(u.raw_user_meta_data ->> 'first_name', '')
+from auth.users u
+where p.id = u.id and p.first_name is null;
+
+update public.profiles p
+set last_name = coalesce(u.raw_user_meta_data ->> 'last_name', '')
+from auth.users u
+where p.id = u.id and p.last_name is null;
+
 -- 3. Now that nothing is null, enforce the real constraints.
 alter table public.profiles alter column username set not null;
 alter table public.profiles alter column role set default 'user';
 alter table public.profiles alter column role set not null;
+alter table public.profiles alter column first_name set default '';
+alter table public.profiles alter column first_name set not null;
+alter table public.profiles alter column last_name set default '';
+alter table public.profiles alter column last_name set not null;
 
 -- Checked directly against pg_constraint rather than caught via
 -- exception: a unique constraint's backing index and a check
@@ -119,6 +137,10 @@ create trigger protect_privileged_columns
 --    on the unique constraint and the whole signup rolls back — no
 --    orphan auth user is left behind. signup.js already turns that into
 --    a friendly "That username is already taken." message.
+--    first_name/last_name are coalesced to '' — they're now not-null
+--    columns, and an explicit null here (e.g. a signup whose metadata
+--    is missing that key) would otherwise violate the constraint and
+--    fail the whole signup, not just leave the name blank.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -129,8 +151,8 @@ begin
   values (
     new.id,
     new.raw_user_meta_data ->> 'username',
-    new.raw_user_meta_data ->> 'first_name',
-    new.raw_user_meta_data ->> 'last_name'
+    coalesce(new.raw_user_meta_data ->> 'first_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'last_name', '')
   );
   return new;
 end;
@@ -150,10 +172,10 @@ There's no self-serve way to become a moderator (on purpose). It's a template �
 update public.profiles set role = 'moderator' where username = 'their_username';
 ```
 
-Once promoted, they can sign in and open `moderator.html` directly (it's not in the main nav) to look up any user by username and edit their coins/streak.
+Once promoted, they can sign in and see a **Panel** link appear in the main nav (`assets/js/auth.js` reveals it for `role = 'moderator'` only) leading to `moderator.html`, to look up any user by username and edit their coins/streak.
 
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.
 - When the admin/CMS side gets built (lesson content, series, tracker calls), those become more `public.*` tables the same way — each with their own RLS policies.
-- **Dashboard setting, not SQL:** `signup.js` now sends `emailRedirectTo` pointing at `login.html` so the confirmation email lands there instead of Supabase's default. That exact URL needs to be added under **Authentication → URL Configuration → Redirect URLs** in the dashboard, or Supabase silently ignores it and falls back to the Site URL. It also only works once the site is served over `http(s)` (a real deploy, or even a local dev server) — opening the files directly (`file://`) gives a broken redirect URL, since there's no real origin to build it from.
+- **Dashboard setting, not SQL:** two flows now redirect through emailed links — signup confirmation (`signup.js` → `login.html`) and password reset (`reset-password-request.js` → `reset-password.html`). **Both exact URLs** need to be added under **Authentication → URL Configuration → Redirect URLs** in the dashboard, or Supabase silently ignores them and falls back to the Site URL. This only works once the site is served over `http(s)` (a real deploy, or even a local dev server) — opening the files directly (`file://`) gives a broken redirect URL, since there's no real origin to build it from.

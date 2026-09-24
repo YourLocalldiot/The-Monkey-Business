@@ -270,8 +270,9 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .avatar-btn {
   width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--surface);
   box-shadow: 0 0 0 1.5px var(--ink-20); padding: 0; background: var(--cream); overflow: hidden;
+  display: block;
 }
-.avatar-btn svg { width: 100%; height: 100%; display: block; }
+.avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .grid { display: grid; grid-template-columns: 1fr 350px; gap: 26px; align-items: start; }
 @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
@@ -406,6 +407,13 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   .sim-trade { width: 100%; justify-content: flex-end; }
 }
 
+/* ---------- Profile page ---------- */
+.profile-head { display: flex; align-items: center; gap: 16px; }
+.profile-avatar {
+  width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-20);
+}
+
 /* ---------- Auth pages (login / signup) ---------- */
 .auth-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
 .auth-shell { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
@@ -430,7 +438,28 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .field input:focus-visible { outline: 2.5px solid var(--honey); outline-offset: 1px; border-color: transparent; }
 .field-hint { font-size: 11.5px; font-weight: 600; color: var(--ink-45); }
 
+.password-field { position: relative; display: flex; }
+.password-field input { flex: 1; padding-right: 42px; }
+.password-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; padding: 7px; color: var(--ink-45);
+  display: flex; align-items: center; justify-content: center; border-radius: 999px;
+}
+.password-toggle:hover { color: var(--ink-70); }
+
+.forgot-link {
+  align-self: flex-end; margin-top: -8px; font-size: 12.5px; font-weight: 700;
+  color: var(--honey-ink); text-decoration: none;
+}
+.forgot-link:hover { text-decoration: underline; }
+
 .auth-submit { width: 100%; justify-content: center; margin-top: 4px; border: none; }
+.btn-secondary {
+  background: transparent; color: var(--ink); border: 1.5px solid var(--ink-20);
+  padding: 12px 22px; border-radius: 999px; font-weight: 700; font-size: 14.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-secondary:hover { background: var(--paper); }
 
 .auth-message { text-align: center; font-size: 13px; font-weight: 600; color: var(--ink-70); margin-top: 16px; }
 .auth-message.is-error { color: var(--bad); }
