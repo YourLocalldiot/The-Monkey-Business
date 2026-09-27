@@ -238,6 +238,33 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 
 .canvas-foot { font-size: 12px; color: var(--ink-45); text-align: center; padding-top: 4px; }
 
+/* ---------- Empty states ---------- */
+.empty-state { padding: 56px 40px; }
+.empty-state-title { font-size: 26px; text-wrap: balance; }
+.empty-state-sub { font-size: 14.5px; color: var(--ink-70); margin-top: 10px; }
+.empty-state .btn-primary { margin-top: 24px; }
+
+/* ---------- Playlists (expandable rows) ---------- */
+.playlist-row {
+  border-radius: var(--radius-m); border: 1.5px solid var(--ink-20);
+  background: var(--surface); overflow: hidden;
+}
+.playlist-row + .playlist-row { margin-top: 12px; }
+.playlist-toggle {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; background: none; border: none; text-align: left;
+  font-family: var(--font-body); color: var(--ink);
+}
+.playlist-icon { width: 30px; height: 30px; flex: none; object-fit: contain; }
+.playlist-name { flex: 1; font-weight: 700; font-size: 15px; }
+.playlist-chevron { flex: none; transition: transform .2s ease; color: var(--ink-45); }
+.playlist-row[data-open="true"] .playlist-chevron { transform: rotate(180deg); }
+.playlist-body {
+  padding: 0 18px 18px 62px; font-size: 13.5px; color: var(--ink-70); line-height: 1.6;
+}
+.playlist-body p + p { margin-top: 8px; }
+.playlist-contents-note { font-size: 12.5px; color: var(--ink-45); font-style: italic; }
+
 .topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 
 .greeting { display: flex; gap: 16px; align-items: flex-end; max-width: 620px; }

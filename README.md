@@ -10,7 +10,9 @@ This repo holds the desktop **Home**, **Simulation**, and **Profile** pages, plu
 
 ```
 index.html                    Home page
-simulation.html                 Paper-trading stock simulator (banana-coins, sandboxed — see Design system)
+simulation.html                 Trading Simulation: paper-trading stock game (banana-coins, sandboxed — see Design system)
+browse-playlists.html           Every playlist from the public.playlists table, as expandable rows
+marketplace.html                Stub page — "coming soon," not just a dead nav link
 profile.html                    Signed-in user's own page: name, stats, log out
 login.html                      Log in (email + password), "Forgot password?", resend confirmation
 signup.html                     Sign up (first/last name + username + email + password + confirm password)
@@ -19,7 +21,7 @@ reset-password.html               Set a new password (the link from that email l
 moderator.html                  Look up a user by username, edit their coins/streak (moderator-only)
 css/styles.css                 Design tokens (colors, type, spacing) + all component styles
 assets/fonts/                   Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
-assets/images/                  Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile)
+assets/images/                  Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile, marketplace, files)
 assets/images/brand-guideline-extracted/  Official mascot/wordmark art pulled out of BRAND GUIDELINE.pptx, for reference
 assets/js/theme.js               Light/dark theme switch (localStorage + prefers-color-scheme)
 assets/js/supabase-client.js     The one shared Supabase client (project URL + anon key live here)
@@ -32,21 +34,23 @@ assets/js/reset-password-request.js  Sends the reset email
 assets/js/reset-password.js      Validates the recovery session, sets the new password
 assets/js/moderator.js           Access-gates and drives moderator.html
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
-docs/supabase-sql.md           The SQL to run in your Supabase project (table, RLS, triggers) — not run yet
+assets/js/browse-playlists.js    Fetches public.playlists and renders the expandable rows
+docs/supabase-sql.md           The SQL to run in your Supabase project (profiles + playlists: tables, RLS, triggers)
 docs/proposed-changes.md       Standing review doc for the brand/auth overhaul — most of it has now been built; see its own status
 ```
 
 ## Planned pages
 
-The main nav has three sections: **Home**, **Tracker**, **Simulation**, plus a fourth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. Only `tracker.html` is still just a link with nothing behind it. **Panel** links to `moderator.html`, which still isn't in the main nav for everyone — same reasoning as the future admin/CMS area, it's a separate, non-public surface, just reachable from the nav for the one role that needs it.
+The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlists**, **Marketplace**, plus a sixth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. Only `tracker.html` is still just a link with nothing behind it. **Panel** links to `moderator.html`, which still isn't in the main nav for everyone — same reasoning as the future admin/CMS area, it's a separate, non-public surface, just reachable from the nav for the one role that needs it.
 
 ## Design system
 
 - **Colors** — `#4d322b` ink, `#ffe8ac` cream, `#b9e7ec` sky, `#f8fdff` paper, plus a `#e79b34` honey accent for primary actions. All defined as CSS custom properties in `css/styles.css`, with a dark-mode palette alongside. Confirmed pixel-identical to `BRAND GUIDELINE.pptx`'s palette slide — see `docs/proposed-changes.md`.
 - **Type** — **Disko Phonic** for the brand wordmark only; **CDA Independence** (Deck weights) for all headings and (Text weights) for body copy. Both are explicitly named in the brand guideline too. See `assets/fonts/README.md` — it flags a licensing constraint on Disko Phonic that affects whether this repo can go public as-is.
-- **Icons** — Home/Tracker/Simulation/Profile nav icons (28px) and the streak/currency (banana) stat-chip icons are all the supplied illustrated PNG set (`assets/images/`), matching the palette. Panel has no supplied asset, so it's a plain inline SVG (shield/check) sized the same as the rest via the shared `.nav-icon` class. The sidebar brand mark and the topline avatar shortcut both use the real mascot art (`assets/images/logo-mark.png`) rather than the placeholder inline-SVG faces they started as.
+- **Icons** — Home/Tracker/Trading Simulation/Profile/Marketplace/Browse-playlists nav icons (28px) and the streak/currency (banana) stat-chip icons are all the supplied illustrated PNG set (`assets/images/`), matching the palette — Marketplace and Browse playlists reuse `marketplace.png` and `files.png`, which were already sitting in the folder unused rather than needing new placeholders. Panel has no supplied asset, so it's a plain inline SVG (shield/check) sized the same as the rest via the shared `.nav-icon` class. The sidebar brand mark and the topline avatar shortcut both use the real mascot art (`assets/images/logo-mark.png`) rather than the placeholder inline-SVG faces they started as.
 - **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
 - **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief, and the brand guideline's own tone-of-voice copy is Vietnamese — but which language(s) the live site actually ships in is an open product decision, not something built silently. See `docs/proposed-changes.md`.
+- **Home's empty state** — the static "Series 2 · Reading a business" lesson demo (continue-card + trail) is commented out in `index.html`, not deleted — search for "Saved for later" there. In its place: "You currently have no playlists" + a button to Browse playlists, matching the reference screenshot's style but with this site's own palette/components, not its indigo theme.
 - **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. It now leads to a real `profile.html` (name, stats, Log out) instead of a dead link. The old sidebar disclaimer ("Educational content only...") moved to the bottom of the Home page's main content instead of being dropped.
 
 ## Accounts, roles, and moderation
@@ -61,18 +65,25 @@ The main nav has three sections: **Home**, **Tracker**, **Simulation**, plus a f
 - Two roles exist: `user` (default) and `moderator`. There's no self-serve way to become a moderator — you promote someone with a one-line SQL command (see `docs/supabase-sql.md`).
 - A moderator sees a **Panel** link in the main nav (everyone else doesn't) leading to `moderator.html`, to look up any user by username and edit their coins/streak. This is enforced by Row Level Security + a database trigger, not just a client-side check — a non-moderator's edit request is silently rejected by Postgres even if they bypass the UI entirely. The same column-locking trigger is why `simulation.html`'s practice currency is kept in `localStorage` instead of touching real `profiles.coins` — see Simulation below.
 
-## Simulation (paper trading)
+## Trading Simulation (paper trading)
 
 - `simulation.html` is a small stock-trading game: four companies (reusing the names from the Tracker mockup — Vinamilk, FPT, Hoa Phat, Mobile World) with prices in 🍌 banana-coins that move when you click "Next day." Buy/sell, watch a sparkline, track net worth and P&L.
 - Its starting 🍌10,000 balance and all holdings live in `localStorage` (`assets/js/simulation.js`), **not** in Supabase and **not** the same balance as the real "coins" shown elsewhere in the app. That's deliberate, not a shortcut: the real `profiles.coins` column is locked by the anti-cheat trigger in `docs/supabase-sql.md` so users can't self-edit it, and a trading game needs to freely add/subtract balance on every trade. Keeping it sandboxed avoids reopening that hole.
 - "Reset simulation" wipes the local save and starts over at day 1 — it never touches a real account.
 
+## Browse playlists
+
+- `browse-playlists.html` reads every row from a new `public.playlists` table (schema in `docs/supabase-sql.md`) and renders each as a collapsed row — icon, `display_name_en`, and a chevron. Clicking one expands it in place (chevron rotates 180°) to show `description_en`, or "Contents coming soon." if `contents_ids` is empty — that column is a placeholder `integer[]` until real content rows/tables exist to point at.
+- Reading the table needs no login (`using (true)` on the select policy) since it's public content; only a moderator can insert/update/delete a playlist, reusing the same `is_moderator()` helper the `profiles` policies use.
+- The Home page's static "Series 2" lesson demo (a hardcoded example, not real data) was retired in favor of an empty state — see Design system below — so this is currently the only place playlist content actually shows up.
+
 ## Not yet in this repo
 
-- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (like this one — first_name/last_name are now enforced not-null, and the auto-create trigger changed to match) — I have no tool that can execute SQL against the project, so schema/trigger changes in this repo don't reach your actual database until you paste and run them yourself.
+- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (this one added the `playlists` table + a fix for an "infinite recursion detected in policy" bug in the moderator RLS policies) — I have no tool that can execute SQL against the project, so schema/policy changes in this repo don't reach your actual database until you paste and run them yourself.
 - **Two Redirect URLs need adding in the Supabase dashboard**, not just the one from before — see the Notes section at the bottom of `docs/supabase-sql.md`.
+- A real content/CMS system connecting `playlists.contents_ids` to actual lesson videos
 - Admin/CMS interface for managing lesson content (separate surface from the public site)
-- The Tracker page
+- The Tracker page, and a real "which playlists has this user started" model (the Home page empty state currently shows for everyone, always, since that tracking doesn't exist yet)
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
 - The i18n/language decision flagged in `docs/proposed-changes.md`
 

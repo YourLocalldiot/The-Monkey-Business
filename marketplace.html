@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Profile — The Monkey Business</title>
-  <meta name="description" content="Your account, stats, and sign-out.">
+  <title>Marketplace — The Monkey Business</title>
+  <meta name="description" content="Spend banamoney — coming soon.">
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
@@ -20,7 +20,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/auth.js" defer></script>
-  <script src="assets/js/profile.js" defer></script>
 </head>
 <body>
 
@@ -50,7 +49,7 @@
         <img class="nav-icon" src="assets/images/files.png" alt="">
         Browse playlists
       </a>
-      <a class="nav-item" href="marketplace.html">
+      <a class="nav-item" href="marketplace.html" aria-current="page">
         <img class="nav-icon" src="assets/images/marketplace.png" alt="">
         Marketplace
       </a>
@@ -76,7 +75,7 @@
     </div>
 
     <div class="sidebar-account">
-      <a class="nav-item profile-link" href="profile.html" aria-current="page">
+      <a class="nav-item profile-link" href="profile.html">
         <img class="nav-icon" src="assets/images/profile.png" alt="">
         Profile
       </a>
@@ -92,49 +91,18 @@
 
       <div class="topline">
         <div>
-          <span class="eyebrow">Your account</span>
-          <h1 class="continue-title" style="margin-top: 6px;">Profile</h1>
+          <span class="eyebrow">Spend your banamoney</span>
+          <h1 class="continue-title" style="margin-top: 6px;">Marketplace</h1>
         </div>
       </div>
 
-      <p class="auth-message" id="profileMessage" role="alert" hidden></p>
-
       <div class="grid">
         <div class="main-col" style="display:flex; flex-direction:column; gap:22px;">
-
-          <section class="card" id="profileCard" hidden>
-            <div class="profile-head">
-              <img class="profile-avatar" src="assets/images/logo-mark.png" alt="">
-              <div>
-                <h2 class="continue-title" style="font-size: 20px;" id="profileName"></h2>
-                <p class="meta-text" id="profileUsername"></p>
-              </div>
-            </div>
+          <section class="card empty-state">
+            <h2 class="empty-state-title">Marketplace is coming soon.</h2>
+            <p class="empty-state-sub">This is where banamoney will turn into real rewards — check back later.</p>
           </section>
-
-          <section class="card">
-            <div class="trail-head"><h2>Stats</h2></div>
-            <div class="stat-cluster" style="margin-top: 12px;">
-              <div class="chip streak">
-                <img class="chip-icon icon-streak" src="assets/images/streak.png" alt="">
-                <span class="tnum" id="profileStreak">0</span>
-              </div>
-              <div class="chip coin">
-                <img class="chip-icon icon-coin" src="assets/images/currency.png" alt="">
-                <span class="tnum" id="profileCoins">0</span>
-              </div>
-            </div>
-          </section>
-
         </div>
-
-        <aside class="rail">
-          <section class="card list-card">
-            <div class="list-head"><h2>Account</h2></div>
-            <p class="goal-caption">Signed in on this device.</p>
-            <button class="btn-primary auth-submit" id="logoutBtn" type="button" style="margin-top: 14px; background: var(--bad); color: var(--surface);">Log out</button>
-          </section>
-        </aside>
       </div>
 
     </div>

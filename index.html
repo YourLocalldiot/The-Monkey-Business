@@ -43,7 +43,15 @@
       </a>
       <a class="nav-item" href="simulation.html">
         <img class="nav-icon" src="assets/images/simulator.png" alt="">
-        Simulation
+        Trading Simulation
+      </a>
+      <a class="nav-item" href="browse-playlists.html">
+        <img class="nav-icon" src="assets/images/files.png" alt="">
+        Browse playlists
+      </a>
+      <a class="nav-item" href="marketplace.html">
+        <img class="nav-icon" src="assets/images/marketplace.png" alt="">
+        Marketplace
       </a>
       <!-- assets/js/auth.js reveals this only when the signed-in user's
            profile has role = 'moderator'. -->
@@ -110,6 +118,20 @@
       <div class="grid">
         <div class="main-col" style="display:flex; flex-direction:column; gap:22px;">
 
+          <section class="card empty-state rise-in">
+            <h2 class="empty-state-title">You currently have no playlists.</h2>
+            <p class="empty-state-sub">Go to playlists to check more playlists.</p>
+            <a class="btn-primary" href="browse-playlists.html">
+              Browse playlists
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </section>
+
+          <!-- Saved for later, not deleted: the static "Series 2" lesson
+               demo (continue-card + trail) that used to live here. Once
+               real per-user playlist progress exists, swap the
+               empty-state section above back out for this. -->
+          <!--
           <section class="card continue-card rise-in">
             <div class="continue-top">
               <div>
@@ -199,6 +221,7 @@
               </div>
             </div>
           </section>
+          -->
 
         </div>
 
