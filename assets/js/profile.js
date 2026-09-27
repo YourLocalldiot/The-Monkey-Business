@@ -27,7 +27,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     .single();
 
   if (result.error || !result.data) {
-    showMessage("Couldn't load your profile. Try refreshing the page.", true);
+    // The exact reason (RLS blocking the row, no row existing, a
+    // network error, etc.) matters for debugging, so it goes to the
+    // console instead of being swallowed by a generic message.
+    console.error('profile.js: failed to load profile row', result.error);
+    if (result.error && result.error.code === 'PGRST116') {
+      showMessage("No profile found for this account — the signup trigger may not have run. See docs/supabase-sql.md.", true);
+    } else if (result.error) {
+      showMessage('Could not load your profile: ' + result.error.message, true);
+    } else {
+      showMessage("Couldn't load your profile. Try refreshing the page.", true);
+    }
   } else {
     var p = result.data;
     var fullName = ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
