@@ -41,7 +41,7 @@ docs/proposed-changes.md       Standing review doc for the brand/auth overhaul �
 
 ## Planned pages
 
-The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlists**, **Marketplace**, plus a sixth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. Only `tracker.html` is still just a link with nothing behind it. **Panel** links to `moderator.html`, which still isn't in the main nav for everyone — same reasoning as the future admin/CMS area, it's a separate, non-public surface, just reachable from the nav for the one role that needs it.
+The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlists**, **Marketplace**, plus a sixth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. `tracker.html` is a blank "coming soon" placeholder, like Marketplace. **Panel** links to `moderator.html`, which still isn't in the main nav for everyone — same reasoning as the future admin/CMS area, it's a separate, non-public surface, just reachable from the nav for the one role that needs it.
 
 ## Design system
 

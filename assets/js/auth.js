@@ -10,6 +10,13 @@ document.addEventListener('DOMContentLoaded', function () {
   var profileLink = document.querySelector('.profile-link');
   var panelLink = document.querySelector('.panel-link');
   var bubble = document.querySelector('.bubble');
+  var statStreak = document.getElementById('statStreak');
+  var statCoins = document.getElementById('statCoins');
+
+  function setStats(streak, coins) {
+    if (statStreak) statStreak.textContent = Number(streak || 0).toLocaleString('en-US');
+    if (statCoins) statCoins.textContent = Number(coins || 0).toLocaleString('en-US');
+  }
 
   function setGreeting(firstName) {
     if (!bubble) return;
@@ -39,18 +46,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!loggedIn) {
       if (panelLink) panelLink.style.display = 'none';
       setGreeting(null);
+      setStats(0, 0);
       return;
     }
 
     var result = await window.sb
       .from('profiles')
-      .select('role, first_name')
+      .select('role, first_name, coins, streak_days')
       .eq('id', session.user.id)
       .single();
 
     var profile = result.data;
     if (panelLink) panelLink.style.display = (profile && profile.role === 'moderator') ? 'flex' : 'none';
     setGreeting(profile ? profile.first_name : null);
+    setStats(profile && profile.streak_days, profile && profile.coins);
   }
 
   window.sb.auth.getSession().then(function (result) {

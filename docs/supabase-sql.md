@@ -13,6 +13,8 @@ alter table public.profiles add column if not exists username text;
 alter table public.profiles add column if not exists role text;
 alter table public.profiles add column if not exists first_name text;
 alter table public.profiles add column if not exists last_name text;
+alter table public.profiles add column if not exists coins integer;
+alter table public.profiles add column if not exists streak_days integer;
 
 -- 2. Backfill from signup metadata before locking the columns down.
 update public.profiles p
@@ -37,7 +39,16 @@ set last_name = coalesce(u.raw_user_meta_data ->> 'last_name', '')
 from auth.users u
 where p.id = u.id and p.last_name is null;
 
+-- coins/streak_days: any pre-existing null becomes 0 (existing non-null
+-- values are left alone).
+update public.profiles set coins = 0 where coins is null;
+update public.profiles set streak_days = 0 where streak_days is null;
+
 -- 3. Now that nothing is null, enforce the real constraints.
+alter table public.profiles alter column coins set default 0;
+alter table public.profiles alter column coins set not null;
+alter table public.profiles alter column streak_days set default 0;
+alter table public.profiles alter column streak_days set not null;
 alter table public.profiles alter column username set not null;
 alter table public.profiles alter column role set default 'user';
 alter table public.profiles alter column role set not null;
@@ -159,12 +170,14 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username, first_name, last_name)
+  insert into public.profiles (id, username, first_name, last_name, coins, streak_days)
   values (
     new.id,
     new.raw_user_meta_data ->> 'username',
     coalesce(new.raw_user_meta_data ->> 'first_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'last_name', '')
+    coalesce(new.raw_user_meta_data ->> 'last_name', ''),
+    0,
+    0
   );
   return new;
 end;
