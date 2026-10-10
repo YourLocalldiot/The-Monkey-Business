@@ -81,6 +81,13 @@ document.addEventListener('DOMContentLoaded', async function () {
       ? '<ol class="playlist-contents">' + contentRows.join('') + '</ol>'
       : '<p class="playlist-contents-note">Contents coming soon.</p>';
 
+    // Sits between the title row and the description. Not wired to anything
+    // yet: there's no per-user "my courses" data to add the playlist to.
+    var addCourse =
+      '<div class="playlist-actions">' +
+        '<button type="button" class="btn-primary btn-small add-course" data-playlist-id="' + escapeHtml(p.playlist_id) + '">Add course</button>' +
+      '</div>';
+
     return (
       '<div class="playlist-row" data-open="false">' +
         '<button type="button" class="playlist-toggle" aria-expanded="false">' +
@@ -88,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async function () {
           '<span class="playlist-name">' + escapeHtml(p.display_name_en) + '</span>' +
           '<svg class="playlist-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
         '</button>' +
-        '<div class="playlist-body" hidden>' + description + contents + '</div>' +
+        '<div class="playlist-body" hidden>' + addCourse + description + contents + '</div>' +
       '</div>'
     );
   }).join('');
