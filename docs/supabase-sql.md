@@ -197,7 +197,7 @@ There's no self-serve way to become a moderator (on purpose). It's a template �
 update public.profiles set role = 'moderator' where username = 'their_username';
 ```
 
-Once promoted, they can sign in and see a **Panel** link appear in the main nav (`assets/js/auth.js` reveals it for `role = 'moderator'` only) leading to `moderator.html`, to look up any user by username and edit their coins/streak.
+Once promoted, they can sign in and see a **CMS** link appear in the main nav (`assets/js/auth.js` reveals it for `role = 'moderator'` only) leading to `moderator.html`, to look up any user by username and edit their coins/streak.
 
 ## Playlists (content for the Browse Playlists page)
 
@@ -257,9 +257,9 @@ create policy "Moderators can delete playlists"
 
 `contents_ids` is no longer used: what's inside a playlist (videos, quizzes, in order) now lives in the `playlist_items` table from the CMS section below, which can point at real rows and be reordered safely. The column is left in place so nothing you set up by hand breaks; drop it whenever you like.
 
-## CMS (the Panel page)
+## CMS (the moderator page)
 
-`moderator.html` (the **Panel** link, moderators only) edits playlists, quizzes, videos and users. Playlists and quizzes are saved through two database functions (`save_playlist`, `save_quiz`) so a save is all-or-nothing; the Panel's content tabs do nothing useful until the second query below has run. **Run both after the `profiles` and `playlists` queries above.**
+`moderator.html` (the **CMS** link, moderators only) edits playlists, quizzes, videos and users. Playlists and quizzes are saved through two database functions (`save_playlist`, `save_quiz`) so a save is all-or-nothing; the CMS's content tabs do nothing useful until the second query below has run. **Run both after the `profiles` and `playlists` queries above.**
 
 ### 1. Close a security hole (run this first, on its own)
 
@@ -469,7 +469,7 @@ create policy "Moderators can manage quiz options"
   with check ((select public.is_moderator()));
 
 -- 3. Save + search functions ---------------------------------------------
--- The Panel saves a whole playlist / quiz in ONE call so it is all-or-
+-- The CMS saves a whole playlist / quiz in ONE call so it is all-or-
 -- nothing (several separate requests could leave a half-saved quiz if one
 -- failed). They run with the caller's own permissions (security invoker),
 -- so the policies above still apply on top of the is_moderator() check.
@@ -718,7 +718,7 @@ as $$
   select lower(unaccent(translate(coalesce(p_text, ''), 'đĐ', 'dD')));
 $$;
 
--- Quiz search for the Panel: matches the name, the description, or the
+-- Quiz search for the CMS: matches the name, the description, or the
 -- text of any question, ignoring case and accents. An empty search
 -- returns everything, newest first.
 create or replace function public.search_quizzes(p_query text default '')
@@ -774,7 +774,7 @@ How it fits together:
 - **`playlist_items`** is the ordered contents of a playlist: each row is one video *or* one quiz (`item_type` says which, and a check constraint enforces that exactly the matching column is filled). Deleting a playlist removes its rows here; a video or quiz still sitting in a playlist can't be deleted.
 - **Quizzes** are `quizzes` (name, description) → `quiz_questions` (text, `time_limit_seconds`, order) → `quiz_options` (text, `is_correct`, order). Several correct options make a question "select all that apply". The old `quizzes.questions` text array is dropped; it was empty.
 - **Who can see what:** visitors can read playlists and `playlist_items`, plus any video or quiz *name* that sits in a playlist; moderators see everything. Questions, answers and the correct-answer flags are moderator-only for now (no quiz player exists yet). When one is built, hand questions to learners through a function that omits `is_correct`, rather than opening those tables.
-- **Another kind of playlist item** (an article, a game, ...): add a column to `playlist_items`, extend the two `item_type` checks, and add the type to `save_playlist`. The Panel's playlist editor then needs a matching picker.
+- **Another kind of playlist item** (an article, a game, ...): add a column to `playlist_items`, extend the two `item_type` checks, and add the type to `save_playlist`. The CMS's playlist editor then needs a matching picker.
 - Quiz search (`search_quizzes`, with its `fold_text` helper) uses the `unaccent` extension, so Vietnamese searches work without typing the accents.
 
 ## Notes

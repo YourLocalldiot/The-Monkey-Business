@@ -1,14 +1,14 @@
 // Session-driven UI: sidebar Log in <-> Profile, the moderator-only
-// Panel nav link, and (on pages that have it) the Home page greeting.
+// CMS nav link, and (on pages that have it) the Home page greeting.
 // Guest is the assumed default for everything here — elements start
-// hidden via CSS (see .profile-link / .panel-link) so a slow session or
+// hidden via CSS (see .profile-link / .cms-link) so a slow session or
 // profile lookup never briefly shows something a guest shouldn't see.
 document.addEventListener('DOMContentLoaded', function () {
   if (!window.sb) return;
 
   var loginBtn = document.querySelector('.login-btn');
   var profileLink = document.querySelector('.profile-link');
-  var panelLink = document.querySelector('.panel-link');
+  var cmsLink = document.querySelector('.cms-link');
   var bubble = document.querySelector('.bubble');
   var statStreak = document.getElementById('statStreak');
   var statCoins = document.getElementById('statCoins');
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function reflectSession(session) {
     var loggedIn = !!session;
-    // Explicit values on both sides — .profile-link/.panel-link are
+    // Explicit values on both sides — .profile-link/.cms-link are
     // hidden via a stylesheet rule; style.display = '' only clears the
     // inline override, which falls right back to that rule instead of
     // showing the element.
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (profileLink) profileLink.style.display = loggedIn ? 'flex' : 'none';
 
     if (!loggedIn) {
-      if (panelLink) panelLink.style.display = 'none';
+      if (cmsLink) cmsLink.style.display = 'none';
       setGreeting(null);
       setStats(0, 0);
       return;
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .single();
 
     var profile = result.data;
-    if (panelLink) panelLink.style.display = (profile && profile.role === 'moderator') ? 'flex' : 'none';
+    if (cmsLink) cmsLink.style.display = (profile && profile.role === 'moderator') ? 'flex' : 'none';
     setGreeting(profile ? profile.first_name : null);
     setStats(profile && profile.streak_days, profile && profile.coins);
   }

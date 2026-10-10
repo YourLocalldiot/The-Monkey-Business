@@ -1,9 +1,9 @@
-// Panel → Playlists tab: create and edit playlists, including the ordered
+// CMS → Playlists tab: create and edit playlists, including the ordered
 // list of videos and quizzes inside each one. A save goes through the
 // save_playlist() database function (docs/supabase-sql.md), so the
 // playlist and its contents are written all-or-nothing.
 (function () {
-  var P = window.Panel;
+  var P = window.CMS;
   var el = P.el;
 
   var DETAIL_COLUMNS =

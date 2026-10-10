@@ -179,7 +179,7 @@ button { font-family: inherit; cursor: pointer; }
 .brand:hover { opacity: .8; }
 .brand:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .brand-mark { width: 40px; height: 40px; flex: none; }
-.brand-name { font-family: var(--font-wordmark); font-weight: 400; font-size: 17px; line-height: 1.2; letter-spacing: .01em; }
+.brand-name { font-family: var(--font-display); font-weight: 700; font-size: 17px; line-height: 1.2; letter-spacing: .01em; }
 .brand-tag { font-size: 11.5px; color: var(--sidebar-ink-60); margin-top: 2px; }
 
 nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -232,7 +232,7 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .profile-link { display: none; }
 /* Same reasoning: hidden until auth.js confirms the signed-in user's
    profile actually has role = 'moderator'. */
-.panel-link { display: none; }
+.cms-link { display: none; }
 
 /* ---------- Canvas ---------- */
 .canvas { flex: 1; min-width: 0; padding: 34px 44px 64px; }
@@ -510,7 +510,7 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .mod-user strong { color: var(--honey-ink); }
 .auth-switch:hover strong { text-decoration: underline; }
 
-/* ---------- Panel (moderator CMS) ---------- */
+/* ---------- CMS (moderator content editor) ---------- */
 .cms-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
 .cms-tab {
   border: 1.5px solid var(--ink-20); background: var(--surface); color: var(--ink-70);
@@ -620,7 +620,21 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   padding: 16px; display: flex; flex-direction: column; gap: 14px;
 }
 .cms-q.has-error { border-color: var(--bad); }
-.cms-q-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cms-q-head { display: flex; align-items: center; gap: 10px; }
+.cms-q-toggle {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 2px 0;
+  background: none; border: none; text-align: left; color: var(--ink); font-family: var(--font-body);
+}
+.cms-q-chevron { flex: none; color: var(--ink-45); transition: transform .2s ease; transform: rotate(-90deg); }
+.cms-q[data-open="true"] .cms-q-chevron { transform: rotate(0deg); }
+.cms-q-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--ink-70); }
+.cms-q-meta { flex: none; font-size: 12px; font-weight: 700; color: var(--ink-45); white-space: nowrap; }
+.cms-q[data-open="true"] .cms-q-title, .cms-q[data-open="true"] .cms-q-meta { display: none; }
+.cms-q-body { display: flex; flex-direction: column; gap: 14px; }
+.cms-q-body[hidden] { display: none; }
+.cms-options-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cms-section-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.cms-section-actions { display: flex; gap: 8px; }
 .cms-q-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .cms-q-kind { font-size: 12px; font-weight: 700; color: var(--ink-45); }
 .cms-q-tools { margin-left: auto; display: flex; gap: 6px; }
@@ -661,7 +675,8 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 }
 @media (max-width: 720px) {
   .cms-editor { padding: 18px; }
-  .cms-actions { bottom: calc(88px + env(safe-area-inset-bottom)); }
+  .cms-actions { bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .cms-q-meta { display: none; }
 }
 
 /* Contents of a playlist on the public Browse page */
@@ -696,13 +711,19 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
      nav.primary-nav) and Profile (inside sidebar-account) become one
      evenly-spaced row of four tabs instead of two separate groups. */
   nav.primary-nav, .sidebar-account { display: contents; }
+  /* Icons only. font-size: 0 hides the label text visually but leaves it
+     in the accessibility tree, so screen readers still announce each tab. */
   .nav-item {
-    flex: 1; flex-direction: column; align-items: center; justify-content: center;
-    gap: 3px; padding: 7px 2px 5px; font-size: 10.5px;
+    flex: 1; min-width: 0; align-items: center; justify-content: center;
+    gap: 0; padding: 6px 0; margin: 0 2px; font-size: 0;
+    border: 2px solid transparent; border-radius: 14px;
     color: var(--ink-45); background: transparent;
   }
+  .nav-item .nav-icon { width: 30px; height: 30px; }
   .nav-item:hover { background: transparent; color: var(--ink-45); }
-  .nav-item[aria-current="page"] { background: transparent; color: var(--honey-ink); box-shadow: none; }
+  .nav-item[aria-current="page"] {
+    background: var(--cream-soft); border-color: var(--honey); color: var(--ink); box-shadow: none;
+  }
 
   .canvas { padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); }
 }

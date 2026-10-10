@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   // One list entry per video/quiz in a playlist, in the order a moderator
-  // arranged them in the Panel. Video titles link out to YouTube.
+  // arranged them in the CMS. Video titles link out to YouTube.
   function contentItem(item) {
     var isQuiz = item.item_type === 'quiz';
     var target = isQuiz ? item.quizzes : item.videos;

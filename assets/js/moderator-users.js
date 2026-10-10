@@ -1,9 +1,9 @@
-// Panel → Users tab: look a user up by username and adjust their coins or
+// CMS → Users tab: look a user up by username and adjust their coins or
 // streak. (This is what the whole moderator page used to be.) The form is
 // plain markup in moderator.html; this wires it up the first time the tab
 // is opened.
 (function () {
-  var P = window.Panel;
+  var P = window.CMS;
 
   P.register('users', function () {
     var message = document.getElementById('usersMessage');

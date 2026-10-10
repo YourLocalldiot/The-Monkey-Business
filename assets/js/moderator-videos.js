@@ -1,8 +1,8 @@
-// Panel → Videos tab: the library of videos that playlists are built from.
+// CMS → Videos tab: the library of videos that playlists are built from.
 // A video here is just a name (English + Vietnamese) and a YouTube link;
 // the Playlists tab decides where each one is used.
 (function () {
-  var P = window.Panel;
+  var P = window.CMS;
   var el = P.el;
 
   // watch?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID

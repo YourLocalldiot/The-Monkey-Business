@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Panel — The Monkey Business</title>
-  <meta name="description" content="Moderator panel: edit playlists, quizzes, videos and users.">
+  <title>CMS — The Monkey Business</title>
+  <meta name="description" content="Moderator CMS: edit playlists, quizzes, videos and users.">
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
@@ -58,9 +58,9 @@
       </a>
       <!-- assets/js/auth.js reveals this only when the signed-in user's
            profile has role = 'moderator'. -->
-      <a class="nav-item panel-link" href="moderator.html" aria-current="page">
+      <a class="nav-item cms-link" href="moderator.html" aria-current="page">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-        Panel
+        CMS
       </a>
     </nav>
 
@@ -95,17 +95,17 @@
       <div class="topline">
         <div>
           <span class="eyebrow">Moderator tools</span>
-          <h1 class="continue-title" style="margin-top: 6px;">Panel</h1>
+          <h1 class="continue-title" style="margin-top: 6px;">CMS</h1>
         </div>
       </div>
 
-      <p class="auth-message" id="panelMessage" role="alert" hidden></p>
+      <p class="auth-message" id="cmsMessage" role="alert" hidden></p>
 
       <!-- Shown by assets/js/moderator.js once the signed-in user's profile
            has role = 'moderator'. Each pane below is filled in by its own
            script (moderator-playlists.js, ...). -->
-      <div id="panelApp" hidden>
-        <div class="cms-tabs" role="tablist" aria-label="Panel sections">
+      <div id="cmsApp" hidden>
+        <div class="cms-tabs" role="tablist" aria-label="CMS sections">
           <button type="button" class="cms-tab" role="tab" id="tab-playlists" data-tab="playlists" aria-controls="pane-playlists" aria-selected="true">Playlists</button>
           <button type="button" class="cms-tab" role="tab" id="tab-quizzes" data-tab="quizzes" aria-controls="pane-quizzes" aria-selected="false" tabindex="-1">Quizzes</button>
           <button type="button" class="cms-tab" role="tab" id="tab-videos" data-tab="videos" aria-controls="pane-videos" aria-selected="false" tabindex="-1">Videos</button>

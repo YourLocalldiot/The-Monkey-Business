@@ -1,9 +1,9 @@
-// Panel → Quizzes tab: search quizzes, and edit a quiz's name, description,
+// CMS → Quizzes tab: search quizzes, and edit a quiz's name, description,
 // questions, answers (with one or more marked correct) and per-question
 // time limit. A save goes through the save_quiz() database function
 // (docs/supabase-sql.md), so the whole quiz is written all-or-nothing.
 (function () {
-  var P = window.Panel;
+  var P = window.CMS;
   var el = P.el;
 
   var DETAIL_COLUMNS =
@@ -24,6 +24,7 @@
       id: null,
       prompt: '',
       time_limit_seconds: null,
+      open: true,   // editor-only: whether the card is expanded
       options: [blankOption(), blankOption(), blankOption(), blankOption()]
     };
   }
@@ -36,6 +37,8 @@
   function isFilled(option) {
     return option.option_text.trim() !== '' || option.is_correct;
   }
+
+  var cardCounter = 0;   // gives each question card a unique body id
 
   P.register('quizzes', function (pane) {
     var md = P.masterDetail(pane, {
@@ -97,7 +100,7 @@
       else md.setNote(searchedFor ? 'No quizzes match your search.' : 'No quizzes yet. Press New to start the first one.');
     }
 
-    async function loadQuiz(id, message) {
+    async function loadQuiz(id, message, openIndexes) {
       selectedId = id;
       renderList();
       showPlaceholder('Loading…');
@@ -121,11 +124,12 @@
         id: row.id,
         display_name: row.display_name || '',
         description: row.description || '',
-        questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q) {
+        questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q, i) {
           return {
             id: q.id,
             prompt: q.prompt,
             time_limit_seconds: q.time_limit_seconds,
+            open: !!openIndexes && openIndexes.indexOf(i) !== -1,
             options: (q.quiz_options || []).slice().sort(byPosition).map(function (o) {
               return { id: o.id, option_text: o.option_text, is_correct: o.is_correct };
             })
@@ -201,12 +205,40 @@
         changed();
       }
 
+      function setAllOpen(open) {
+        state.questions.forEach(function (q) { q.open = open; });
+        renderQuestions();
+      }
+
       function questionCard(q, index) {
         var kind = el('span', { class: 'cms-q-kind' });
-        function refreshKind() {
-          var n = q.options.filter(function (o) { return o.is_correct; }).length;
-          kind.textContent = n > 1 ? 'Select all that apply' : n === 1 ? 'Single answer' : 'No correct answer yet';
+        var title = el('span', { class: 'cms-q-title' });
+        var meta = el('span', { class: 'cms-q-meta' });
+        // Keeps the one-line summary (shown when the card is collapsed) and
+        // the single/multiple-answer label in step with the fields.
+        function refresh() {
+          var correct = q.options.filter(function (o) { return o.is_correct; }).length;
+          kind.textContent = correct > 1 ? 'Select all that apply' : correct === 1 ? 'Single answer' : 'No correct answer yet';
+          var answers = q.options.filter(isFilled).length;
+          title.textContent = q.prompt.trim() || 'No question text yet';
+          meta.textContent = answers + (answers === 1 ? ' answer' : ' answers') +
+            (q.time_limit_seconds !== null ? ' · ' + q.time_limit_seconds + ' s' : '');
         }
+
+        var bodyId = 'quiz-q-body-' + (++cardCounter);
+        var body = el('div', { class: 'cms-q-body', id: bodyId, hidden: !q.open });
+        var chevron = P.icon('chevron', 16);
+        chevron.setAttribute('class', 'cms-q-chevron');
+        var toggle = el('button', {
+          type: 'button', class: 'cms-q-toggle',
+          'aria-expanded': q.open ? 'true' : 'false', 'aria-controls': bodyId,
+          onclick: function () {
+            q.open = !q.open;
+            card.dataset.open = q.open ? 'true' : 'false';
+            body.hidden = !q.open;
+            toggle.setAttribute('aria-expanded', q.open ? 'true' : 'false');
+          }
+        }, chevron, el('span', { class: 'cms-q-num', text: 'Question ' + (index + 1) }), title, meta);
 
         var up = P.iconButton('Move question up', 'up', function () { moveQuestion(index, -1); });
         var down = P.iconButton('Move question down', 'down', function () { moveQuestion(index, 1); });
@@ -217,13 +249,14 @@
 
         var prompt = el('textarea', {
           rows: 2, maxlength: 1000, value: q.prompt, placeholder: 'Type the question',
-          oninput: function () { q.prompt = prompt.value; changed(); }
+          oninput: function () { q.prompt = prompt.value; refresh(); changed(); }
         });
         var time = el('input', {
           type: 'number', min: 1, max: 3600, step: 1, inputmode: 'numeric', placeholder: 'No limit',
           value: q.time_limit_seconds === null ? '' : String(q.time_limit_seconds),
           oninput: function () {
             q.time_limit_seconds = time.value === '' ? null : Number(time.value);
+            refresh();
             changed();
           }
         });
@@ -238,7 +271,7 @@
               onchange: function () {
                 option.is_correct = check.checked;
                 row.classList.toggle('is-correct', option.is_correct);
-                refreshKind();
+                refresh();
                 changed();
               }
             });
@@ -246,7 +279,7 @@
               type: 'text', class: 'cms-opt-text', maxlength: 500, value: option.option_text,
               placeholder: 'Answer ' + (i + 1),
               'aria-label': 'Answer ' + (i + 1) + ' of question ' + (index + 1),
-              oninput: function () { option.option_text = text.value; changed(); },
+              oninput: function () { option.option_text = text.value; refresh(); changed(); },
               // Enter moves to the next answer (adding one after the last)
               // instead of submitting the whole quiz.
               onkeydown: function (e) {
@@ -266,38 +299,41 @@
             row.appendChild(P.iconButton('Remove this answer', 'close', function () {
               q.options.splice(i, 1);
               renderOptions();
-              refreshKind();
               changed();
             }, 'danger'));
             optionsBox.appendChild(row);
           });
+          refresh();
           if (focusIndex !== undefined && optionsBox.children[focusIndex]) {
             optionsBox.children[focusIndex].querySelector('.cms-opt-text').focus();
           }
         }
         renderOptions();
-        refreshKind();
 
-        return el('div', { class: 'cms-q' },
+        body.appendChild(P.field('Question', prompt));
+        body.appendChild(P.field('Time limit (seconds)', time, 'Leave empty for no time limit.', 'cms-q-time'));
+        body.appendChild(el('div', { class: 'cms-options' },
+          el('div', { class: 'cms-options-head' },
+            el('span', { class: 'cms-options-label', text: 'Answers (tick every correct one)' }),
+            kind),
+          optionsBox,
+          el('button', {
+            type: 'button', class: 'btn-secondary btn-small cms-add-row',
+            onclick: function () {
+              q.options.push(blankOption());
+              renderOptions(q.options.length - 1);
+              changed();
+            }
+          }, P.icon('plus', 14), 'Add answer')));
+
+        var card = el('div', { class: 'cms-q', 'data-open': q.open ? 'true' : 'false' },
           el('div', { class: 'cms-q-head' },
-            el('span', { class: 'cms-q-num', text: 'Question ' + (index + 1) }),
-            kind,
+            toggle,
             el('div', { class: 'cms-q-tools' },
               up, down,
               P.iconButton('Delete question', 'trash', function () { removeQuestion(index); }, 'danger'))),
-          P.field('Question', prompt),
-          P.field('Time limit (seconds)', time, 'Leave empty for no time limit.', 'cms-q-time'),
-          el('div', { class: 'cms-options' },
-            el('span', { class: 'cms-options-label', text: 'Answers (tick every correct one)' }),
-            optionsBox,
-            el('button', {
-              type: 'button', class: 'btn-secondary btn-small cms-add-row',
-              onclick: function () {
-                q.options.push(blankOption());
-                renderOptions(q.options.length - 1);
-                changed();
-              }
-            }, P.icon('plus', 14), 'Add answer')));
+          body);
+        return card;
       }
 
       renderQuestions();
@@ -345,6 +381,8 @@
           card.classList.remove('has-error');
         });
         if (problem.index !== undefined) {
+          state.questions[problem.index].open = true;
+          renderQuestions();
           var card = questionsBox.children[problem.index];
           if (card) {
             card.classList.add('has-error');
@@ -364,6 +402,9 @@
         Array.prototype.forEach.call(questionsBox.children, function (card) {
           card.classList.remove('has-error');
         });
+
+        var openIndexes = [];
+        state.questions.forEach(function (q, i) { if (q.open) openIndexes.push(i); });
 
         P.status(statusEl, 'Saving…');
         var result = await P.withBusy([saveBtn, deleteBtn], function () {
@@ -391,7 +432,7 @@
         // their ids; otherwise saving twice would add them twice.
         P.setDirty(false);
         await loadList();
-        await loadQuiz(result.data, 'Saved.');
+        await loadQuiz(result.data, 'Saved.', openIndexes);
       }
 
       async function onDelete() {
@@ -424,8 +465,12 @@
         P.field('Description', descInput, 'Optional. A short summary, shown under the name in the quiz list.'),
         el('section', { class: 'cms-section' },
           el('div', { class: 'cms-section-head' },
-            el('h3', { text: 'Questions' }),
-            el('span', { class: 'cms-hint', text: 'Asked in this order' })),
+            el('div', { class: 'cms-section-title' },
+              el('h3', { text: 'Questions' }),
+              el('span', { class: 'cms-hint', text: 'Asked in this order' })),
+            el('div', { class: 'cms-section-actions' },
+              el('button', { type: 'button', class: 'btn-secondary btn-small', text: 'Expand all', onclick: function () { setAllOpen(true); } }),
+              el('button', { type: 'button', class: 'btn-secondary btn-small', text: 'Collapse all', onclick: function () { setAllOpen(false); } }))),
           questionsBox,
           el('button', {
             type: 'button', class: 'btn-secondary cms-add-row',
