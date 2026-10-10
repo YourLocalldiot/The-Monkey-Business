@@ -266,6 +266,29 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 }
 .playlist-body p + p { margin-top: 8px; }
 .playlist-actions { margin-bottom: 12px; }
+
+/* ---------- Home: the current playlist box ---------- */
+.playlist-box { padding: 22px 26px; }
+.playlist-box-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.playlist-box-titles { min-width: 0; }
+.playlist-box-title { font-size: 26px; margin-top: 4px; overflow-wrap: anywhere; }
+.playlist-box-toggle {
+  width: 40px; height: 40px; flex: none; padding: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper); color: var(--ink-70); border: 1.5px solid var(--ink-20);
+  transition: transform .2s ease, background .15s ease;
+}
+.playlist-box-toggle:hover { background: var(--cream-soft); color: var(--ink); }
+.playlist-box-toggle[aria-expanded="true"] { transform: rotate(180deg); }
+.playlist-box-menu {
+  margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ink-20);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 14px;
+}
+.playlist-box-menu[hidden], .playlist-box-hint[hidden] { display: none; }
+.playlist-box-hint { font-size: 15px; font-weight: 600; color: var(--ink-70); }
+.playlist-box-others { display: flex; flex-wrap: wrap; gap: 10px; }
+.playlist-box-others:empty { display: none; }
+.playlist-box-menu .auth-message { margin-top: 0; text-align: left; }
 .playlist-contents-note { font-size: 12.5px; color: var(--ink-45); font-style: italic; }
 
 .topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
@@ -331,6 +354,7 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   display: inline-flex; align-items: center; gap: 8px; box-shadow: var(--shadow-md);
   transition: transform .15s ease;
 }
+a.btn-primary { text-decoration: none; }
 .btn-primary:hover { transform: translateY(-1px); }
 .btn-primary:active { transform: translateY(0); }
 

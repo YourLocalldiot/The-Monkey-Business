@@ -38,7 +38,8 @@ assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, quest
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
-assets/js/browse-playlists.js    Fetches public.playlists (and their contents) and renders the expandable rows
+assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"
+assets/js/home.js                Home: the box showing the signed-in user's current playlist (from user_playlists)
 docs/supabase-sql.md           The SQL to run in your Supabase project (profiles, playlists and the CMS tables: schema, RLS, triggers, functions)
 docs/proposed-changes.md       Standing review doc for the brand/auth overhaul — most of it has now been built; see its own status
 ```
@@ -54,7 +55,7 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - **Icons** — Home/Tracker/Trading Simulation/Profile/Marketplace/Browse-playlists nav icons (28px) and the streak/currency (banana) stat-chip icons are all the supplied illustrated PNG set (`assets/images/`), matching the palette — Marketplace and Browse playlists reuse `marketplace.png` and `files.png`, which were already sitting in the folder unused rather than needing new placeholders. CMS has no supplied asset, so it's a plain inline SVG (shield/check) sized the same as the rest via the shared `.nav-icon` class. The sidebar brand mark and the topline avatar shortcut both use the real mascot art (`assets/images/logo-mark.png`) rather than the placeholder inline-SVG faces they started as.
 - **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
 - **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief, and the brand guideline's own tone-of-voice copy is Vietnamese — but which language(s) the live site actually ships in is an open product decision, not something built silently. See `docs/proposed-changes.md`.
-- **Home's empty state** — the static "Series 2 · Reading a business" lesson demo (continue-card + trail) is commented out in `index.html`, not deleted — search for "Saved for later" there. In its place: "You currently have no playlists" + a button to Browse playlists, matching the reference screenshot's style but with this site's own palette/components, not its indigo theme.
+- **Home's empty state** — the static "Series 2 · Reading a business" lesson demo (continue-card + trail) is commented out in `index.html`, not deleted — search for "Saved for later" there. In its place: "You currently have no playlists" + a button to Browse playlists, matching the reference screenshot's style but with this site's own palette/components, not its indigo theme. That box now only shows for someone with no playlists (or a visitor who isn't signed in); once a user has added one, Home shows the current-playlist box instead (see Your playlists below).
 - **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. It now leads to a real `profile.html` (name, stats, Log out) instead of a dead link. The old sidebar disclaimer ("Educational content only...") moved to the bottom of the Home page's main content instead of being dropped.
 
 - **Mobile nav** — at phone width the sidebar becomes a bottom tab bar of icons only (no text labels, like most mobile learning apps); the current page gets a boxed highlight. The labels are still in the markup, just hidden with `font-size: 0`, so screen readers announce them.
@@ -83,6 +84,13 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - Reading the table needs no login (`using (true)` on the select policy) since it's public content; only a moderator can insert/update/delete a playlist, reusing the same `is_moderator()` helper the `profiles` policies use.
 - The Home page's static "Series 2" lesson demo (a hardcoded example, not real data) was retired in favor of an empty state — see Design system below — so this is currently the only place playlist content actually shows up.
 
+## Your playlists (Home)
+
+- Each expanded playlist on Browse playlists has an **Add playlist** button between its title and description. A signed-in user's click saves it to the `user_playlists` table (the button then reads "Added"); a visitor who isn't signed in is sent to the login page.
+- Home then shows a box with the name of the **current** playlist and a collapse/expand button on its right. The current playlist is the most recently added or chosen one (`user_playlists.last_opened_at`). Collapsed it shows only the name. Expanded: with one playlist it says "Too easy? Click here for more playlists!" above a **Browse playlists** button; with two or more it lists the others as buttons (picking one makes it current, saved through the `open_playlist()` function) above the same button.
+- With no playlists, Home keeps the original "You currently have no playlists" box.
+- It needs the `user_playlists` SQL in `docs/supabase-sql.md`. Until that's run, Home keeps the empty box and Add playlist shows an error.
+
 ## CMS (the moderator page)
 
 `moderator.html` shares the normal sidebar and has four tabs (the tab is kept in the URL, e.g. `moderator.html#quizzes`). Only a signed-in moderator gets past the gate; as with everything else here, the real protection is Row Level Security in the database, not the page.
@@ -105,7 +113,7 @@ Things worth knowing:
 - **Two Redirect URLs need adding in the Supabase dashboard**, not just the one from before — see the Notes section at the bottom of `docs/supabase-sql.md`.
 - A quiz player for learners (taking a quiz, grading it, awarding coins). Questions and correct answers are moderator-only until it exists; see the notes in `docs/supabase-sql.md`.
 - Playlist item types beyond videos and quizzes (`playlist_items` is built to take more)
-- The Tracker page, and a real "which playlists has this user started" model (the Home page empty state currently shows for everyone, always, since that tracking doesn't exist yet)
+- The Tracker page, and real progress tracking (which videos/quizzes in a playlist a user has finished); Home's current-playlist box only shows the playlist's name so far
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
 - The i18n/language decision flagged in `docs/proposed-changes.md`
 

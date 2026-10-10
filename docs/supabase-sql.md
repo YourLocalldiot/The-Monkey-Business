@@ -777,6 +777,70 @@ How it fits together:
 - **Another kind of playlist item** (an article, a game, ...): add a column to `playlist_items`, extend the two `item_type` checks, and add the type to `save_playlist`. The CMS's playlist editor then needs a matching picker.
 - Quiz search (`search_quizzes`, with its `fold_text` helper) uses the `unaccent` extension, so Vietnamese searches work without typing the accents.
 
+## Your playlists (the Home page)
+
+**Run this after the `playlists` query above** (it only needs `public.playlists`).
+
+**Save as:** `user_playlists: schema + rls`
+
+Which playlists each signed-in user has added with the **Add playlist** button on Browse playlists, and which one is current. Home shows the one with the latest `last_opened_at` (adding a playlist or choosing it from the Home box makes it the latest). Deleting a playlist or an account removes the matching rows. Safe to re-run.
+
+```sql
+create table if not exists public.user_playlists (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  playlist_id bigint not null references public.playlists (playlist_id) on delete cascade,
+  added_at timestamptz not null default now(),
+  -- The playlist with the latest value is the one the Home page shows.
+  last_opened_at timestamptz not null default now(),
+  primary key (user_id, playlist_id)
+);
+create index if not exists user_playlists_playlist_id_idx
+  on public.user_playlists (playlist_id);
+
+-- Everyone, moderators included, can only see and change their own rows.
+alter table public.user_playlists enable row level security;
+
+drop policy if exists "Users can view their own playlists" on public.user_playlists;
+create policy "Users can view their own playlists"
+  on public.user_playlists for select to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists "Users can add playlists for themselves" on public.user_playlists;
+create policy "Users can add playlists for themselves"
+  on public.user_playlists for insert to authenticated
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists "Users can update their own playlists" on public.user_playlists;
+create policy "Users can update their own playlists"
+  on public.user_playlists for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists "Users can remove their own playlists" on public.user_playlists;
+create policy "Users can remove their own playlists"
+  on public.user_playlists for delete to authenticated
+  using (user_id = (select auth.uid()));
+
+-- Makes a playlist the current one on Home. Uses the database's clock, so
+-- a wrong clock on someone's device can't scramble the order.
+create or replace function public.open_playlist(p_playlist_id bigint)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update public.user_playlists
+     set last_opened_at = now()
+   where user_id = (select auth.uid())
+     and playlist_id = p_playlist_id;
+$$;
+
+revoke execute on function public.open_playlist(bigint) from public, anon;
+grant  execute on function public.open_playlist(bigint) to authenticated;
+```
+
+Until this has been run, Home keeps showing "You currently have no playlists", and **Add playlist** shows an error instead of saving.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

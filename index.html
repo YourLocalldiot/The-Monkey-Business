@@ -20,6 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/auth.js" defer></script>
+  <script src="assets/js/home.js" defer></script>
 </head>
 <body>
 
@@ -116,7 +117,30 @@
       <div class="grid">
         <div class="main-col" style="display:flex; flex-direction:column; gap:22px;">
 
-          <section class="card empty-state rise-in">
+          <!-- assets/js/home.js shows exactly one of the next two boxes once it
+               knows whether the signed-in user has added any playlists. -->
+          <section class="card playlist-box rise-in" id="currentPlaylist" hidden>
+            <div class="playlist-box-head">
+              <div class="playlist-box-titles">
+                <span class="eyebrow">Your playlist</span>
+                <h2 class="playlist-box-title" id="currentPlaylistName"></h2>
+              </div>
+              <button type="button" class="playlist-box-toggle" id="currentPlaylistToggle" aria-expanded="false" aria-controls="currentPlaylistMenu" aria-label="Show your other playlists">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+            <div class="playlist-box-menu" id="currentPlaylistMenu" hidden>
+              <p class="playlist-box-hint" id="currentPlaylistHint" hidden>Too easy? Click here for more playlists!</p>
+              <div class="playlist-box-others" id="otherPlaylists"></div>
+              <p class="auth-message is-error" id="currentPlaylistMessage" role="alert" hidden></p>
+              <a class="btn-primary" href="browse-playlists.html">
+                Browse playlists
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          </section>
+
+          <section class="card empty-state rise-in" id="noPlaylists" hidden>
             <h2 class="empty-state-title">You currently have no playlists.</h2>
             <p class="empty-state-sub">Go to playlists to check more playlists.</p>
             <a class="btn-primary" href="browse-playlists.html">

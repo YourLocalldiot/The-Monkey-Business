@@ -81,11 +81,10 @@ document.addEventListener('DOMContentLoaded', async function () {
       ? '<ol class="playlist-contents">' + contentRows.join('') + '</ol>'
       : '<p class="playlist-contents-note">Contents coming soon.</p>';
 
-    // Sits between the title row and the description. Not wired to anything
-    // yet: there's no per-user "my courses" data to add the playlist to.
-    var addCourse =
+    // Sits between the title row and the description.
+    var addPlaylist =
       '<div class="playlist-actions">' +
-        '<button type="button" class="btn-primary btn-small add-course" data-playlist-id="' + escapeHtml(p.playlist_id) + '">Add course</button>' +
+        '<button type="button" class="btn-primary btn-small add-playlist" data-playlist-id="' + escapeHtml(p.playlist_id) + '">Add playlist</button>' +
       '</div>';
 
     return (
@@ -95,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async function () {
           '<span class="playlist-name">' + escapeHtml(p.display_name_en) + '</span>' +
           '<svg class="playlist-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
         '</button>' +
-        '<div class="playlist-body" hidden>' + addCourse + description + contents + '</div>' +
+        '<div class="playlist-body" hidden>' + addPlaylist + description + contents + '</div>' +
       '</div>'
     );
   }).join('');
@@ -109,5 +108,54 @@ document.addEventListener('DOMContentLoaded', async function () {
       toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       body.hidden = !willOpen;
     });
+  });
+
+  // ---- Add playlist ----
+  // Saves the playlist to the signed-in user's list (user_playlists, see
+  // docs/supabase-sql.md); that's what the Home page shows. A visitor who
+  // isn't signed in is sent to log in first.
+  var session = (await window.sb.auth.getSession()).data.session;
+
+  function markAdded(button) {
+    button.textContent = 'Added';
+    button.disabled = true;
+  }
+
+  if (session) {
+    var mine = await window.sb.from('user_playlists').select('playlist_id');
+    if (!mine.error) {
+      var added = {};
+      (mine.data || []).forEach(function (row) { added[row.playlist_id] = true; });
+      listEl.querySelectorAll('.add-playlist').forEach(function (button) {
+        if (added[button.dataset.playlistId]) markAdded(button);
+      });
+    }
+  }
+
+  listEl.addEventListener('click', async function (event) {
+    var button = event.target.closest('.add-playlist');
+    if (!button || button.disabled) return;
+
+    if (!session) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Adding…';
+    var inserted = await window.sb
+      .from('user_playlists')
+      .insert({ playlist_id: Number(button.dataset.playlistId) });
+
+    // 23505: it was already in their list, which is what they wanted.
+    if (inserted.error && inserted.error.code !== '23505') {
+      console.error('browse-playlists.js: could not add playlist', inserted.error);
+      button.disabled = false;
+      button.textContent = 'Add playlist';
+      showMessage("Couldn't add that playlist. Please try again in a moment.", true);
+      return;
+    }
+    message.hidden = true;
+    markAdded(button);
   });
 });
