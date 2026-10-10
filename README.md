@@ -2,7 +2,7 @@
 
 Khỉ's own online diary — a platform teaching Vietnamese high schoolers investing and economics through video playlists and games. Learn and practice freely, zero judgment: Khỉ is a friend, not a teacher.
 
-This repo holds the desktop **Home**, **Simulation**, and **Profile** pages, plus a full **Log in / Sign up / Reset password / Moderator tools** auth flow, as a static site wired to a real Supabase backend — the first pieces of the site, built for review before the rest of the pages and the content/admin CMS work.
+This repo holds the desktop **Home**, **Simulation**, and **Profile** pages, plus a full **Log in / Sign up / Reset password** auth flow and a moderator-only **Panel** (the CMS), as a static site wired to a real Supabase backend — the first pieces of the site, built for review before the rest of the pages and the content/admin CMS work.
 
 > **Keep this repo private for now.** The wordmark font (Disko Phonic) is licensed for personal use only — see `assets/fonts/README.md` before making this repo or any site built from it public.
 
@@ -18,7 +18,7 @@ login.html                      Log in (email + password), "Forgot password?", r
 signup.html                     Sign up (first/last name + username + email + password + confirm password)
 reset-password-request.html       Request a password reset email
 reset-password.html               Set a new password (the link from that email lands here)
-moderator.html                  Look up a user by username, edit their coins/streak (moderator-only)
+moderator.html                  Panel (moderator-only CMS): edit playlists, quizzes and videos; look up a user and edit their coins/streak
 css/styles.css                 Design tokens (colors, type, spacing) + all component styles
 assets/fonts/                   Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
 assets/images/                  Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile, marketplace, files)
@@ -32,16 +32,20 @@ assets/js/signup.js              Wires signup.html: sign-up, password-match chec
 assets/js/profile.js             Loads the signed-in user's profile row; wires the Log out button
 assets/js/reset-password-request.js  Sends the reset email
 assets/js/reset-password.js      Validates the recovery session, sets the new password
-assets/js/moderator.js           Access-gates and drives moderator.html
+assets/js/moderator.js           Panel shell: access gate, tabs, and the helpers the section scripts share
+assets/js/moderator-playlists.js Panel > Playlists: details + the ordered videos/quizzes inside, saved through save_playlist()
+assets/js/moderator-quizzes.js   Panel > Quizzes: search; name, description, questions, answers, correct answers, time limits; saved through save_quiz()
+assets/js/moderator-videos.js    Panel > Videos: the video library (names + YouTube link)
+assets/js/moderator-users.js     Panel > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
-assets/js/browse-playlists.js    Fetches public.playlists and renders the expandable rows
-docs/supabase-sql.md           The SQL to run in your Supabase project (profiles + playlists: tables, RLS, triggers)
+assets/js/browse-playlists.js    Fetches public.playlists (and their contents) and renders the expandable rows
+docs/supabase-sql.md           The SQL to run in your Supabase project (profiles, playlists and the CMS tables: schema, RLS, triggers, functions)
 docs/proposed-changes.md       Standing review doc for the brand/auth overhaul — most of it has now been built; see its own status
 ```
 
 ## Planned pages
 
-The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlists**, **Marketplace**, plus a sixth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. `tracker.html` is a blank "coming soon" placeholder, like Marketplace. **Panel** links to `moderator.html`, which still isn't in the main nav for everyone — same reasoning as the future admin/CMS area, it's a separate, non-public surface, just reachable from the nav for the one role that needs it.
+The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlists**, **Marketplace**, plus a sixth, **Panel**, that only moderators ever see (`assets/js/auth.js` checks the signed-in user's `role` and reveals it). **Profile** sits separately at the bottom of the sidebar (see Design system below), alongside a **Log in** button — `assets/js/auth.js` shows whichever one actually matches the visitor's session. `tracker.html` is a blank "coming soon" placeholder, like Marketplace. **Panel** links to `moderator.html`, the CMS (see below); it's a separate, non-public surface, so only moderators ever see the link.
 
 ## Design system
 
@@ -63,7 +67,7 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - **Log out** exists now, on `profile.html` (`supabase.auth.signOut()`), which is also where "Profile" in the sidebar actually leads.
 - Once signed in, the Home page greeting uses the real first name (`assets/js/auth.js` fetches it and rewrites the speech bubble) instead of the static placeholder.
 - Two roles exist: `user` (default) and `moderator`. There's no self-serve way to become a moderator — you promote someone with a one-line SQL command (see `docs/supabase-sql.md`).
-- A moderator sees a **Panel** link in the main nav (everyone else doesn't) leading to `moderator.html`, to look up any user by username and edit their coins/streak. This is enforced by Row Level Security + a database trigger, not just a client-side check — a non-moderator's edit request is silently rejected by Postgres even if they bypass the UI entirely. The same column-locking trigger is why `simulation.html`'s practice currency is kept in `localStorage` instead of touching real `profiles.coins` — see Simulation below.
+- A moderator sees a **Panel** link in the main nav (everyone else doesn't) leading to `moderator.html` (the Panel, below). This is enforced by Row Level Security + a database trigger, not just a client-side check — a non-moderator's edit request is silently rejected by Postgres even if they bypass the UI entirely. The same column-locking trigger is why `simulation.html`'s practice currency is kept in `localStorage` instead of touching real `profiles.coins` — see Simulation below.
 
 ## Trading Simulation (paper trading)
 
@@ -73,16 +77,32 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 
 ## Browse playlists
 
-- `browse-playlists.html` reads every row from a new `public.playlists` table (schema in `docs/supabase-sql.md`) and renders each as a collapsed row — icon, `display_name_en`, and a chevron. Clicking one expands it in place (chevron rotates 180°) to show `description_en`, or "Contents coming soon." if `contents_ids` is empty — that column is a placeholder `integer[]` until real content rows/tables exist to point at.
+- `browse-playlists.html` reads every row from a new `public.playlists` table (schema in `docs/supabase-sql.md`) and renders each as a collapsed row — icon, `display_name_en`, and a chevron. Clicking one expands it in place (chevron rotates 180°) to show `description_en` and the playlist's contents: its videos and quizzes in the order a moderator set in the Panel (video titles link out to YouTube), or "Contents coming soon." if it has none. Contents come from the `playlist_items` table; if the CMS SQL hasn't been run yet, the page falls back to listing the playlists without contents instead of breaking. (`playlists.contents_ids` is no longer used.)
 - Reading the table needs no login (`using (true)` on the select policy) since it's public content; only a moderator can insert/update/delete a playlist, reusing the same `is_moderator()` helper the `profiles` policies use.
 - The Home page's static "Series 2" lesson demo (a hardcoded example, not real data) was retired in favor of an empty state — see Design system below — so this is currently the only place playlist content actually shows up.
 
+## Panel (the moderator CMS)
+
+`moderator.html` shares the normal sidebar and has four tabs (the tab is kept in the URL, e.g. `moderator.html#quizzes`). Only a signed-in moderator gets past the gate; as with everything else here, the real protection is Row Level Security in the database, not the page.
+
+- **Playlists** — create, edit and delete playlists: English and Vietnamese name and description, an optional image link, and the **contents**: an ordered list of videos and quizzes (add from a searchable picker, reorder with the arrow buttons, remove). Saved in one call through the `save_playlist()` database function.
+- **Quizzes** — search quizzes by name, description or the text of any question (case- and accent-insensitive, so "co phieu" finds "Cổ phiếu"); edit the name, description and any number of questions, each with its text, an optional time limit in seconds, and any number of answers with one or more ticked as correct (several ticks make it "select all that apply"). Questions can be reordered; deleting asks first when there's content. Saved in one call through `save_quiz()`.
+- **Videos** — the library playlists are built from: English and Vietnamese name plus a YouTube link (checked for a valid YouTube address). Shows which playlists use a video, and won't let you delete one that's still in a playlist.
+- **Users** — what the old moderator page did: look a user up by username and set their coins and streak.
+
+Things worth knowing:
+
+- Unsaved edits are guarded: switching item or tab (or closing the page) asks before throwing them away.
+- Saves match rows by id and update them in place, so a question's or playlist item's id survives re-saving (anything added later that points at them, like progress tracking, won't be wiped by an edit).
+- A new playlist is public immediately; a video or quiz becomes visible to visitors only once it's in a playlist. There's no draft/publish switch for playlists themselves yet.
+- It needs the CMS SQL in `docs/supabase-sql.md` (new tables, policies and functions). Until that has been run, the Playlists/Quizzes/Videos tabs say so instead of failing quietly.
+
 ## Not yet in this repo
 
-- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (this one added the `playlists` table + a fix for an "infinite recursion detected in policy" bug in the moderator RLS policies) — I have no tool that can execute SQL against the project, so schema/policy changes in this repo don't reach your actual database until you paste and run them yourself.
+- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (the latest one adds the CMS tables and functions and revokes public access to a `set_profile_moderator` function that would have let anyone make themselves a moderator) — I have no tool that can execute SQL against the project, so schema/policy changes in this repo don't reach your actual database until you paste and run them yourself.
 - **Two Redirect URLs need adding in the Supabase dashboard**, not just the one from before — see the Notes section at the bottom of `docs/supabase-sql.md`.
-- A real content/CMS system connecting `playlists.contents_ids` to actual lesson videos
-- Admin/CMS interface for managing lesson content (separate surface from the public site)
+- A quiz player for learners (taking a quiz, grading it, awarding coins). Questions and correct answers are moderator-only until it exists; see the notes in `docs/supabase-sql.md`.
+- Playlist item types beyond videos and quizzes (`playlist_items` is built to take more)
 - The Tracker page, and a real "which playlists has this user started" model (the Home page empty state currently shows for everyone, always, since that tracking doesn't exist yet)
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
 - The i18n/language decision flagged in `docs/proposed-changes.md`

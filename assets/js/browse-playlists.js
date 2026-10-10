@@ -17,15 +17,41 @@ document.addEventListener('DOMContentLoaded', async function () {
       .replace(/"/g, '&quot;');
   }
 
+  // One list entry per video/quiz in a playlist, in the order a moderator
+  // arranged them in the Panel. Video titles link out to YouTube.
+  function contentItem(item) {
+    var isQuiz = item.item_type === 'quiz';
+    var target = isQuiz ? item.quizzes : item.videos;
+    if (!target) return '';
+
+    var title = escapeHtml(isQuiz ? target.display_name : target.display_name_en);
+    var pill = '<span class="type-pill ' + (isQuiz ? 'quiz' : 'video') + '">' + (isQuiz ? 'Quiz' : 'Video') + '</span>';
+    var link = !isQuiz && /^https?:\/\//i.test(target.youtube_link || '') ? target.youtube_link : '';
+    var label = link
+      ? '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer">' + title + '</a>'
+      : '<span class="playlist-item-title">' + title + '</span>';
+    return '<li>' + pill + label + '</li>';
+  }
+
   if (!window.sb) {
     showMessage('Could not reach the service. Check your connection and try again.', true);
     return;
   }
 
+  var COLUMNS = 'playlist_id, display_name_en, description_en, image_url';
   var result = await window.sb
     .from('playlists')
-    .select('playlist_id, display_name_en, description_en, contents_ids, image_url')
+    .select(COLUMNS + ', playlist_items(position, item_type, videos(display_name_en, youtube_link), quizzes(display_name))')
     .order('playlist_id', { ascending: true });
+
+  // The CMS tables don't exist yet (the CMS queries in docs/supabase-sql.md
+  // haven't been run): still list the playlists, just without contents.
+  if (result.error && (result.error.code === 'PGRST200' || result.error.code === 'PGRST205' || result.error.code === '42P01')) {
+    result = await window.sb
+      .from('playlists')
+      .select(COLUMNS)
+      .order('playlist_id', { ascending: true });
+  }
 
   if (result.error) {
     showMessage('Could not load playlists: ' + result.error.message, true);
@@ -47,8 +73,12 @@ document.addEventListener('DOMContentLoaded', async function () {
       ? '<p>' + escapeHtml(p.description_en) + '</p>'
       : '<p class="playlist-contents-note">No description yet.</p>';
 
-    var contentsNote = (p.contents_ids && p.contents_ids.length)
-      ? ''
+    var contentRows = (p.playlist_items || []).slice()
+      .sort(function (a, b) { return a.position - b.position; })
+      .map(contentItem)
+      .filter(Boolean);
+    var contents = contentRows.length
+      ? '<ol class="playlist-contents">' + contentRows.join('') + '</ol>'
       : '<p class="playlist-contents-note">Contents coming soon.</p>';
 
     return (
@@ -58,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async function () {
           '<span class="playlist-name">' + escapeHtml(p.display_name_en) + '</span>' +
           '<svg class="playlist-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
         '</button>' +
-        '<div class="playlist-body" hidden>' + description + contentsNote + '</div>' +
+        '<div class="playlist-body" hidden>' + description + contents + '</div>' +
       '</div>'
     );
   }).join('');
