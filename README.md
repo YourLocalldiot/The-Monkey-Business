@@ -39,7 +39,7 @@ assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTub
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
 assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"
-assets/js/home.js                Home: the box showing the signed-in user's current playlist (from user_playlists)
+assets/js/home.js                Home: the current-playlist box (from user_playlists) and the path of pieces under it
 docs/supabase-sql.md           The SQL to run in your Supabase project (profiles, playlists and the CMS tables: schema, RLS, triggers, functions)
 docs/proposed-changes.md       Standing review doc for the brand/auth overhaul — most of it has now been built; see its own status
 ```
@@ -88,6 +88,7 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 
 - Each expanded playlist on Browse playlists has an **Add playlist** button between its title and description. A signed-in user's click saves it to the `user_playlists` table (the button then reads "Added"); a visitor who isn't signed in is sent to the login page.
 - Home then shows a box with the name of the **current** playlist and a collapse/expand button on its right. The current playlist is the most recently added or chosen one (`user_playlists.last_opened_at`). Collapsed it shows only the name. Expanded: with one playlist it says "Too easy? Click here for more playlists!" above a **Browse playlists** button; with two or more it lists the others as buttons (picking one makes it current, saved through the `open_playlist()` function) above the same button.
+- **The path:** under the box, the current playlist's videos and quizzes ("pieces") are drawn as round buttons along a curving path, borrowed from Duolingo's lesson path. The first and last pieces sit on the centre line of the playlist box. Pieces are grouped into curves that start and end on that line: 5 pieces go centre, left, further left, back, centre; 4 go centre, left, straight down, centre; 3 go centre, left, centre. Curves of 5 are chained, sharing the centred piece where they meet, and the remainder becomes a curve of 3 or 4 (or one extra centred piece), so 9 pieces is 5+5, 7 is 5+3 and 10 is 5+5+1. Successive curves alternate between bulging left and right (`PATH_ALTERNATES` in `assets/js/home.js` makes them all bulge left instead). Videos get a rounded play triangle and quizzes a rounded star. A piece lifts slightly on hover and presses flat when clicked; clicking opens a box with its name and a **Watch Video** / **Play Quiz** button (the button doesn't do anything yet), and it closes on a click elsewhere or Escape.
 - With no playlists, Home keeps the original "You currently have no playlists" box.
 - It needs the `user_playlists` SQL in `docs/supabase-sql.md`. Until that's run, Home keeps the empty box and Add playlist shows an error.
 
