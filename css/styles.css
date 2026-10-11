@@ -272,6 +272,9 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 /* ---------- Home: the path of pieces under the playlist box ---------- */
 .path {
   --piece-size: 64px; --piece-pitch: 88px;
+  /* The face of a piece is a slightly flattened ellipse (full width, shorter
+     by the ledge), so face + ledge together read as a clean circle. */
+  --piece-ledge: calc(var(--piece-size) * 0.1);
   --piece: var(--honey);
   --piece-edge: color-mix(in srgb, var(--honey) 60%, #5a3300);
 }
@@ -284,15 +287,15 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
   position: absolute; z-index: 1;
   top: calc(var(--row) * var(--piece-pitch));
   left: calc(50% + var(--off) * var(--piece-size) - var(--piece-size) / 2);
-  width: var(--piece-size); height: var(--piece-size); padding: 0;
+  width: var(--piece-size); height: calc(var(--piece-size) - var(--piece-ledge)); padding: 0;
   display: flex; align-items: center; justify-content: center;
   border: none; border-radius: 50%;
   background: var(--piece); color: #fffaf0;
-  box-shadow: 0 6px 0 var(--piece-edge);
+  box-shadow: 0 var(--piece-ledge) 0 var(--piece-edge);
   transition: transform .08s ease, box-shadow .08s ease;
 }
-.path-piece:hover { transform: translateY(2px); box-shadow: 0 4px 0 var(--piece-edge); }
-.path-piece:active, .path-piece[aria-expanded="true"] { transform: translateY(6px); box-shadow: 0 0 0 var(--piece-edge); }
+.path-piece:hover { transform: translateY(calc(var(--piece-ledge) / 3)); box-shadow: 0 calc(var(--piece-ledge) * 2 / 3) 0 var(--piece-edge); }
+.path-piece:active, .path-piece[aria-expanded="true"] { transform: translateY(var(--piece-ledge)); box-shadow: 0 0 0 var(--piece-edge); }
 .path-piece:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; border-radius: 50%; }
 .path-popup {
   position: absolute; z-index: 5; padding: 16px;

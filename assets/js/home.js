@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     var left = Math.max(0, Math.min(center - width / 2, track.clientWidth - width));
     popup.style.width = width + 'px';
     popup.style.left = left + 'px';
-    popup.style.top = (openPiece.offsetTop + openPiece.offsetHeight + 18) + 'px';
+    popup.style.top = (openPiece.offsetTop + openPiece.offsetWidth + 14) + 'px';   // below face + ledge
     popup.style.setProperty('--arrow-x', (center - left) + 'px');
     // keep the box inside the track even for the last piece
     track.style.minHeight = '';
