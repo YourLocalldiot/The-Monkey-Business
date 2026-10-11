@@ -40,7 +40,8 @@ assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/s
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
 assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"
 assets/js/home.js                Home: the current-playlist box (from user_playlists) and the path of pieces under it
-docs/supabase-sql.md           The SQL to run in your Supabase project (profiles, playlists and the CMS tables: schema, RLS, triggers, functions)
+docs/supabase-sql.md           The SQL to run in your Supabase project (profiles, playlists, the CMS tables and user playlists: schema, RLS, triggers, functions)
+docs/pending-supabase-sql.md   Which of those snippets haven't been run yet (kept in step with supabase-sql.md; you confirm what's been run)
 docs/proposed-changes.md       Standing review doc for the brand/auth overhaul — most of it has now been built; see its own status
 ```
 
@@ -56,9 +57,9 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
 - **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief, and the brand guideline's own tone-of-voice copy is Vietnamese — but which language(s) the live site actually ships in is an open product decision, not something built silently. See `docs/proposed-changes.md`.
 - **Home's empty state** — the static "Series 2 · Reading a business" lesson demo (continue-card + trail) is commented out in `index.html`, not deleted — search for "Saved for later" there. In its place: "You currently have no playlists" + a button to Browse playlists, matching the reference screenshot's style but with this site's own palette/components, not its indigo theme. That box now only shows for someone with no playlists (or a visitor who isn't signed in); once a user has added one, Home shows the current-playlist box instead (see Your playlists below).
-- **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. It now leads to a real `profile.html` (name, stats, Log out) instead of a dead link. The old sidebar disclaimer ("Educational content only...") moved to the bottom of the Home page's main content instead of being dropped.
+- **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. It now leads to a real `profile.html` (name, stats, Log out) instead of a dead link. The old "Educational content only..." disclaimer that used to sit under Home's content has since been removed.
 
-- **Social links** — the right-hand column (Home, Profile, Simulation) ends with four round icon buttons linking to the project's Facebook, Instagram, TikTok and GitHub. They open in a new tab, are 44px for easy tapping, and wrap and stay centred on a phone. The icons are plain inline SVG outlines, drawn in the same line style as the Lucide icon set (ISC licence); the links live in the `.rail-footer` block repeated at the end of each page's `.rail`.
+- **Social links** — the right-hand column (Home, Profile, Simulation) ends with four round icon buttons linking to the project's Facebook, Instagram, TikTok and GitHub. They're spread across the full width of the column (the outer buttons line up with the cards above), open in a new tab, are 44px for easy tapping, and wrap on very narrow screens. The icons are plain inline SVG outlines, drawn in the same line style as the Lucide icon set (ISC licence); the links live in the `.rail-footer` block repeated at the end of each page's `.rail`.
 - **Mobile nav** — at phone width the sidebar becomes a bottom tab bar of icons only (no text labels, like most mobile learning apps); the current page gets a boxed highlight. The labels are still in the markup, just hidden with `font-size: 0`, so screen readers announce them.
 
 ## Accounts, roles, and moderation
@@ -111,7 +112,7 @@ Things worth knowing:
 
 ## Not yet in this repo
 
-- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (the latest one adds the CMS tables and functions and revokes public access to a `set_profile_moderator` function that would have let anyone make themselves a moderator) — I have no tool that can execute SQL against the project, so schema/policy changes in this repo don't reach your actual database until you paste and run them yourself.
+- **`docs/supabase-sql.md` needs a re-run after every pull that touches it** (`docs/pending-supabase-sql.md` lists what's outstanding) — I have no tool that can execute SQL against the project, so schema/policy changes in this repo don't reach your actual database until you paste and run them yourself.
 - **Two Redirect URLs need adding in the Supabase dashboard**, not just the one from before — see the Notes section at the bottom of `docs/supabase-sql.md`.
 - A quiz player for learners (taking a quiz, grading it, awarding coins). Questions and correct answers are moderator-only until it exists; see the notes in `docs/supabase-sql.md`.
 - Playlist item types beyond videos and quizzes (`playlist_items` is built to take more)

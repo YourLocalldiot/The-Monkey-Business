@@ -2,6 +2,8 @@
 
 Every auth/data-driven page already points at your real Supabase project (`assets/js/supabase-client.js`). Paste each query below into your project's SQL Editor and run it — I have no tool that can execute SQL against your database, so this has to be run by you.
 
+**What still needs running?** See [`pending-supabase-sql.md`](pending-supabase-sql.md), which is updated whenever a snippet is added or changed here.
+
 **Save as:** `profiles: schema + rls + triggers`
 
 The table, Row Level Security, and both triggers, in one script. Every statement checks first or is written to not error on a second run, so it's safe to re-run any time (e.g. after a policy gets accidentally dropped, or in a new environment).
