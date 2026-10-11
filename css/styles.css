@@ -439,6 +439,19 @@ a.btn-primary { text-decoration: none; }
 /* aside rail */
 .rail { display: flex; flex-direction: column; gap: 18px; }
 .rail-card { background: var(--sky-soft); border-color: transparent; }
+
+/* Links to our social accounts, at the foot of the right-hand column. */
+.rail-footer { padding: 6px 0 2px; }
+.social-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.social-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-70); background: var(--surface); border: 1.5px solid var(--ink-20);
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s ease, background .15s ease, color .15s ease;
+}
+.social-btn:hover { background: var(--cream-soft); color: var(--ink); transform: translateY(-2px); }
+.social-btn:active { transform: translateY(0); }
 .goal-top { display: flex; justify-content: space-between; align-items: baseline; }
 .goal-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .goal-caption { font-size: 12.5px; color: var(--ink-70); margin-top: 10px; }
