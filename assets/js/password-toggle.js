@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     btn.addEventListener('click', function () {
       var willShow = input.type === 'password';
       input.type = willShow ? 'text' : 'password';
-      btn.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
+      btn.setAttribute('aria-label', willShow ? I18N.t('auth.hide') : I18N.t('auth.show'));
       if (showIcon) showIcon.hidden = willShow;
       if (hideIcon) hideIcon.hidden = !willShow;
     });

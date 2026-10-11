@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Trading Simulation — The Monkey Business</title>
-  <meta name="description" content="Practice stock trading with pretend banana-coins — zero risk, zero real money.">
+  <title data-i18n="page.simulation.title">Trading Simulation — The Monkey Business</title>
+  <meta name="description" data-i18n-content="page.simulation.desc" content="Practice stock trading with pretend banana-coins — zero risk, zero real money.">
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
+  <script src="assets/js/i18n-strings.js"></script>
+  <script src="assets/js/i18n.js"></script>
   <script>
     (function () {
       try {
@@ -26,29 +28,29 @@
 
 <div class="app">
   <aside class="sidebar">
-    <a class="brand" href="index.html" aria-label="The Monkey Business — Home">
+    <a class="brand" href="index.html" aria-label="The Monkey Business — Home" data-i18n-aria-label="brand.home">
       <img class="brand-mark" src="assets/images/monkeyHead.PNG" alt="">
       <span class="brand-name">The Monkey Business</span>
     </a>
 
-    <nav class="primary-nav" aria-label="Primary">
-      <a class="nav-item" href="index.html">
+    <nav class="primary-nav" aria-label="Primary" data-i18n-aria-label="nav.primary">
+      <a class="nav-item" href="index.html" data-i18n="nav.home">
         <img class="nav-icon" src="assets/images/home.png" alt="">
         Home
       </a>
-      <a class="nav-item" href="tracker.html">
+      <a class="nav-item" href="tracker.html" data-i18n="nav.tracker">
         <img class="nav-icon" src="assets/images/tracker.png" alt="">
         Tracker
       </a>
-      <a class="nav-item" href="simulation.html" aria-current="page">
+      <a class="nav-item" href="simulation.html" data-i18n="nav.simulation" aria-current="page">
         <img class="nav-icon" src="assets/images/simulator.png" alt="">
         Trading Simulation
       </a>
-      <a class="nav-item" href="browse-playlists.html">
+      <a class="nav-item" href="browse-playlists.html" data-i18n="nav.browse">
         <img class="nav-icon" src="assets/images/files.png" alt="">
         Browse playlists
       </a>
-      <a class="nav-item" href="marketplace.html">
+      <a class="nav-item" href="marketplace.html" data-i18n="nav.marketplace">
         <img class="nav-icon" src="assets/images/marketplace.png" alt="">
         Marketplace
       </a>
@@ -62,23 +64,12 @@
 
     <div class="sidebar-spacer"></div>
 
-    <div class="theme-switch" role="group" aria-label="Theme">
-      <button type="button" data-theme-choice="light" aria-pressed="true">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2 12h2.4M19.6 12H22M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
-        Light
-      </button>
-      <button type="button" data-theme-choice="dark" aria-pressed="false">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.7A8 8 0 1 1 9.3 4a6.4 6.4 0 0 0 10.7 10.7Z"/></svg>
-        Dark
-      </button>
-    </div>
-
     <div class="sidebar-account">
-      <a class="nav-item profile-link" href="profile.html">
+      <a class="nav-item profile-link" href="profile.html" data-i18n="nav.profile">
         <img class="nav-icon" src="assets/images/profile.png" alt="">
         Profile
       </a>
-      <a class="login-btn" href="login.html">
+      <a class="login-btn" href="login.html" data-i18n="nav.login">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
         Log in
       </a>
@@ -91,8 +82,8 @@
       <div class="topline">
         <div class="greeting" style="max-width: none;">
           <div>
-            <span class="eyebrow">Paper trading · Practice cash, not your real banamoney</span>
-            <h2 class="continue-title" style="margin-top: 6px;">Trading Simulation</h2>
+            <span class="eyebrow" data-i18n="sim.eyebrow">Paper trading · Practice cash, not your real banamoney</span>
+            <h2 class="continue-title" style="margin-top: 6px;" data-i18n="sim.title">Trading Simulation</h2>
           </div>
         </div>
 
@@ -104,7 +95,7 @@
           <div class="chip" id="simPnlChip">
             <span class="tnum" id="simPnl">+0 (+0.0%)</span>
           </div>
-          <button class="btn-primary" id="nextDayBtn" type="button">
+          <button class="btn-primary" id="nextDayBtn" type="button" data-i18n="sim.next">
             Next day
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
           </button>
@@ -118,8 +109,8 @@
 
           <section class="card">
             <div class="trail-head">
-              <h2>Market · Day <span id="simDay" class="tnum">1</span></h2>
-              <span>Prices in 🍌 banana-coins</span>
+              <h2 data-i18n="sim.market">Market · Day <span id="simDay" class="tnum">1</span></h2>
+              <span data-i18n="sim.prices">Prices in 🍌 banana-coins</span>
             </div>
             <div id="stockList"></div>
           </section>
@@ -129,38 +120,39 @@
         <aside class="rail">
           <section class="card rail-card">
             <div class="goal-top">
-              <span class="eyebrow">Net worth</span>
+              <span class="eyebrow" data-i18n="sim.networth">Net worth</span>
               <span class="goal-num tnum" id="simNetWorth">🍌10,000</span>
             </div>
-            <p class="goal-caption">Cash + holdings, marked to today's prices.</p>
+            <p class="goal-caption" data-i18n="sim.networthCaption">Cash + holdings, marked to today's prices.</p>
           </section>
 
           <section class="card list-card">
-            <div class="list-head"><h2>Your holdings</h2></div>
+            <div class="list-head"><h2 data-i18n="sim.holdings">Your holdings</h2></div>
             <div id="holdingsList"></div>
           </section>
 
           <section class="card list-card">
-            <div class="list-head"><h2>Start over</h2></div>
-            <p class="goal-caption">Resets to a fresh 🍌10,000 and day 1 — doesn't touch your real banamoney.</p>
-            <button class="btn-primary auth-submit" id="resetBtn" type="button" style="margin-top: 12px; background: var(--bad); color: var(--surface);">Reset simulation</button>
+            <div class="list-head"><h2 data-i18n="sim.startOver">Start over</h2></div>
+            <p class="goal-caption" data-i18n="sim.startOverCaption">Resets to a fresh 🍌10,000 and day 1 — doesn't touch your real banamoney.</p>
+            <button class="btn-primary auth-submit" id="resetBtn" type="button" data-i18n="sim.reset" style="margin-top: 12px; background: var(--bad); color: var(--surface);">Reset simulation</button>
           </section>
           <footer class="rail-footer">
-            <nav class="social-links" aria-label="The Monkey Business on social media">
-              <a class="social-btn" href="https://www.facebook.com/profile.php?id=61594759293803" target="_blank" rel="noopener noreferrer" aria-label="Facebook (opens in a new tab)" title="Facebook"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
-              <a class="social-btn" href="https://www.instagram.com/1hemonkeybusiness/" target="_blank" rel="noopener noreferrer" aria-label="Instagram (opens in a new tab)" title="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></svg></a>
-              <a class="social-btn" href="https://www.tiktok.com/@1hemonkeybusiness?is_from_webapp=1&amp;sender_device=pc" target="_blank" rel="noopener noreferrer" aria-label="TikTok (opens in a new tab)" title="TikTok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3v10.5a4 4 0 1 1-4-4"/><path d="M15 3c.3 2.4 1.9 4.2 4.5 4.5"/></svg></a>
-              <a class="social-btn" href="https://github.com/YourLocalldiot/The-Monkey-Business" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens in a new tab)" title="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg></a>
+            <nav class="social-links" aria-label="The Monkey Business on social media" data-i18n-aria-label="social.nav">
+              <a class="social-btn" href="https://www.facebook.com/profile.php?id=61594759293803" target="_blank" rel="noopener noreferrer" aria-label="Facebook (opens in a new tab)" data-i18n-aria-label="social.facebook" title="Facebook"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+              <a class="social-btn" href="https://www.instagram.com/1hemonkeybusiness/" target="_blank" rel="noopener noreferrer" aria-label="Instagram (opens in a new tab)" data-i18n-aria-label="social.instagram" title="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></svg></a>
+              <a class="social-btn" href="https://www.tiktok.com/@1hemonkeybusiness?is_from_webapp=1&amp;sender_device=pc" target="_blank" rel="noopener noreferrer" aria-label="TikTok (opens in a new tab)" data-i18n-aria-label="social.tiktok" title="TikTok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3v10.5a4 4 0 1 1-4-4"/><path d="M15 3c.3 2.4 1.9 4.2 4.5 4.5"/></svg></a>
+              <a class="social-btn" href="https://github.com/YourLocalldiot/The-Monkey-Business" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens in a new tab)" data-i18n-aria-label="social.github" title="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg></a>
             </nav>
           </footer>
         </aside>
       </div>
 
-      <p class="canvas-foot">Practice money only — this never touches your real banamoney balance. Educational content only, nothing here is investment advice.</p>
+      <p class="canvas-foot" data-i18n="sim.foot">Practice money only — this never touches your real banamoney balance. Educational content only, nothing here is investment advice.</p>
 
     </div>
   </main>
 </div>
 
+<script>window.I18N && I18N.apply();</script>
 </body>
 </html>

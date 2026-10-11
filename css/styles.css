@@ -150,6 +150,10 @@ button { font-family: inherit; cursor: pointer; }
 :focus-visible { outline: 2.5px solid var(--honey); outline-offset: 2px; border-radius: 6px; }
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* Set by assets/js/i18n.js for any language other than English, until the
+   page's text has been translated, so nobody sees English flash first. */
+html.i18n-pending body { visibility: hidden; }
+
 @media (prefers-reduced-motion: no-preference) {
   .grow-in { animation: growIn .6s cubic-bezier(.2,.7,.3,1) both; }
   .rise-in { animation: riseIn .5s cubic-bezier(.2,.7,.3,1) both; }
@@ -202,19 +206,6 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 }
 
 .sidebar-spacer { flex: 1; }
-
-.theme-switch {
-  display: flex; background: rgba(248,236,217,.08); border-radius: 999px; padding: 3px;
-  gap: 2px;
-}
-.theme-switch button {
-  flex: 1; border: none; background: transparent; color: var(--sidebar-ink-60);
-  font-size: 12.5px; font-weight: 700; padding: 7px 0; border-radius: 999px;
-  letter-spacing: .02em;
-  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-}
-.theme-switch button svg { flex: none; }
-.theme-switch button[aria-pressed="true"] { background: var(--sidebar-ink); color: var(--sidebar-bg); }
 
 .sidebar-account {
   display: flex; flex-direction: column; gap: 10px;
@@ -530,6 +521,20 @@ a.btn-primary { text-decoration: none; }
 
 /* ---------- Profile page ---------- */
 .profile-head { display: flex; align-items: center; gap: 16px; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 0; }
+.pref-row + .pref-row { border-top: 1px solid var(--ink-20); }
+.pref-label { font-weight: 700; font-size: 14.5px; }
+.pref-switch {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--paper); border: 1.5px solid var(--ink-20); border-radius: 999px;
+}
+.pref-switch button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; background: transparent; color: var(--ink-70);
+  font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 999px;
+}
+.pref-switch button svg { flex: none; }
+.pref-switch button[aria-pressed="true"] { background: var(--ink); color: var(--cream-soft); }
 .profile-avatar {
   width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex: none;
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-20);
@@ -741,6 +746,8 @@ a.btn-primary { text-decoration: none; }
 .cms-opt.is-correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 10%, var(--surface)); }
 .cms-opt-correct { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12.5px; font-weight: 700; color: var(--ink-70); white-space: nowrap; }
 .cms-opt-correct input { width: 18px; height: 18px; margin: 0; accent-color: var(--good); }
+.cms-opt-texts { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cms-opt-text.vn { font-size: 13px; color: var(--ink-70); border-top: 1px dashed var(--ink-20); border-radius: 0; }
 .cms-opt-text {
   flex: 1; min-width: 0; border: none; background: transparent; color: var(--ink);
   font-family: var(--font-body); font-size: 14.5px; padding: 8px 4px;
@@ -797,7 +804,7 @@ a.btn-primary { text-decoration: none; }
     box-shadow: 0 -6px 20px -10px rgba(77,50,43,.22);
     z-index: 40;
   }
-  .brand, .sidebar-spacer, .theme-switch, .login-btn { display: none; }
+  .brand, .sidebar-spacer, .login-btn { display: none; }
 
   /* Unwrap these two containers so Home/Tracker/Simulation (inside
      nav.primary-nav) and Profile (inside sidebar-account) become one

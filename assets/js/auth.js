@@ -14,8 +14,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var statCoins = document.getElementById('statCoins');
 
   function setStats(streak, coins) {
-    if (statStreak) statStreak.textContent = Number(streak || 0).toLocaleString('en-US');
-    if (statCoins) statCoins.textContent = Number(coins || 0).toLocaleString('en-US');
+    if (statStreak) statStreak.textContent = I18N.number(streak || 0);
+    if (statCoins) statCoins.textContent = I18N.number(coins || 0);
   }
 
   function setGreeting(firstName) {
@@ -24,14 +24,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // parsed as markup — it's just displayed, whatever it contains.
     bubble.textContent = '';
     bubble.appendChild(document.createTextNode(
-      (firstName ? 'Morning, ' + firstName + '! I ' : 'Morning! I ')
+      (firstName ? I18N.t('home.greet.named', { name: firstName }) : I18N.t('home.greet.anon')) + ' '
     ));
     var b = document.createElement('b');
-    b.textContent = 'think';
+    b.textContent = I18N.t('home.greet.think');
     bubble.appendChild(b);
-    bubble.appendChild(document.createTextNode(
-      " I finally get what a P/E ratio is. Let's find out for sure."
-    ));
+    bubble.appendChild(document.createTextNode(' ' + I18N.t('home.greet.rest')));
   }
 
   async function reflectSession(session) {
@@ -50,13 +48,26 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    var columns = 'role, first_name, coins, streak_days';
     var result = await window.sb
       .from('profiles')
-      .select('role, first_name, coins, streak_days')
+      .select(columns + ', language')
       .eq('id', session.user.id)
       .single();
 
+    // profiles.language comes from the i18n SQL in docs/supabase-sql.md;
+    // without it, load everything else as before.
+    if (result.error && result.error.code === '42703') {
+      result = await window.sb
+        .from('profiles')
+        .select(columns)
+        .eq('id', session.user.id)
+        .single();
+    }
+
     var profile = result.data;
+    // The language saved on the account wins over this device's (reloads once if it differs).
+    if (profile && profile.language) I18N.adopt(profile.language);
     if (cmsLink) cmsLink.style.display = (profile && profile.role === 'moderator') ? 'flex' : 'none';
     setGreeting(profile ? profile.first_name : null);
     setStats(profile && profile.streak_days, profile && profile.coins);

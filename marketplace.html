@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Marketplace — The Monkey Business</title>
-  <meta name="description" content="Spend banamoney — coming soon.">
+  <title data-i18n="page.marketplace.title">Marketplace — The Monkey Business</title>
+  <meta name="description" data-i18n-content="page.marketplace.desc" content="Spend banamoney — coming soon.">
   <link rel="icon" type="image/png" href="assets/images/favicon.png">
   <link rel="apple-touch-icon" href="assets/images/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
+  <script src="assets/js/i18n-strings.js"></script>
+  <script src="assets/js/i18n.js"></script>
   <script>
     (function () {
       try {
@@ -25,29 +27,29 @@
 
 <div class="app">
   <aside class="sidebar">
-    <a class="brand" href="index.html" aria-label="The Monkey Business — Home">
+    <a class="brand" href="index.html" aria-label="The Monkey Business — Home" data-i18n-aria-label="brand.home">
       <img class="brand-mark" src="assets/images/monkeyHead.PNG" alt="">
       <span class="brand-name">The Monkey Business</span>
     </a>
 
-    <nav class="primary-nav" aria-label="Primary">
-      <a class="nav-item" href="index.html">
+    <nav class="primary-nav" aria-label="Primary" data-i18n-aria-label="nav.primary">
+      <a class="nav-item" href="index.html" data-i18n="nav.home">
         <img class="nav-icon" src="assets/images/home.png" alt="">
         Home
       </a>
-      <a class="nav-item" href="tracker.html">
+      <a class="nav-item" href="tracker.html" data-i18n="nav.tracker">
         <img class="nav-icon" src="assets/images/tracker.png" alt="">
         Tracker
       </a>
-      <a class="nav-item" href="simulation.html">
+      <a class="nav-item" href="simulation.html" data-i18n="nav.simulation">
         <img class="nav-icon" src="assets/images/simulator.png" alt="">
         Trading Simulation
       </a>
-      <a class="nav-item" href="browse-playlists.html">
+      <a class="nav-item" href="browse-playlists.html" data-i18n="nav.browse">
         <img class="nav-icon" src="assets/images/files.png" alt="">
         Browse playlists
       </a>
-      <a class="nav-item" href="marketplace.html" aria-current="page">
+      <a class="nav-item" href="marketplace.html" data-i18n="nav.marketplace" aria-current="page">
         <img class="nav-icon" src="assets/images/marketplace.png" alt="">
         Marketplace
       </a>
@@ -61,23 +63,12 @@
 
     <div class="sidebar-spacer"></div>
 
-    <div class="theme-switch" role="group" aria-label="Theme">
-      <button type="button" data-theme-choice="light" aria-pressed="true">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2 12h2.4M19.6 12H22M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
-        Light
-      </button>
-      <button type="button" data-theme-choice="dark" aria-pressed="false">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.7A8 8 0 1 1 9.3 4a6.4 6.4 0 0 0 10.7 10.7Z"/></svg>
-        Dark
-      </button>
-    </div>
-
     <div class="sidebar-account">
-      <a class="nav-item profile-link" href="profile.html">
+      <a class="nav-item profile-link" href="profile.html" data-i18n="nav.profile">
         <img class="nav-icon" src="assets/images/profile.png" alt="">
         Profile
       </a>
-      <a class="login-btn" href="login.html">
+      <a class="login-btn" href="login.html" data-i18n="nav.login">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
         Log in
       </a>
@@ -89,16 +80,16 @@
 
       <div class="topline">
         <div>
-          <span class="eyebrow">Spend your banamoney</span>
-          <h1 class="continue-title" style="margin-top: 6px;">Marketplace</h1>
+          <span class="eyebrow" data-i18n="market.eyebrow">Spend your banamoney</span>
+          <h1 class="continue-title" style="margin-top: 6px;" data-i18n="market.title">Marketplace</h1>
         </div>
       </div>
 
       <div class="grid">
         <div class="main-col" style="display:flex; flex-direction:column; gap:22px;">
           <section class="card empty-state">
-            <h2 class="empty-state-title">Marketplace is coming soon.</h2>
-            <p class="empty-state-sub">This is where banamoney will turn into real rewards — check back later.</p>
+            <h2 class="empty-state-title" data-i18n="market.empty.title">Marketplace is coming soon.</h2>
+            <p class="empty-state-sub" data-i18n="market.empty.sub">This is where banamoney will turn into real rewards — check back later.</p>
           </section>
         </div>
       </div>
@@ -107,5 +98,6 @@
   </main>
 </div>
 
+<script>window.I18N && I18N.apply();</script>
 </body>
 </html>

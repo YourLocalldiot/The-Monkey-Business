@@ -14,12 +14,12 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
 
     if (!window.sb) {
-      showMessage('Could not reach the sign-up service. Check your connection and try again.', true);
+      showMessage(I18N.t('signup.noService'), true);
       return;
     }
 
     if (form.password.value !== form.password_confirm.value) {
-      showMessage("Those passwords don't match.", true);
+      showMessage(I18N.t('signup.mismatch'), true);
       return;
     }
 
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var lastName = form.last_name.value.trim();
     var submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Signing up…';
+    submitBtn.textContent = I18N.t('signup.submitting');
 
     // These land in auth.users' metadata; the handle_new_user() trigger
     // (see docs/supabase-sql.md) copies them onto the new public.profiles
@@ -47,13 +47,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Sign up';
+    submitBtn.textContent = I18N.t('auth.signup');
 
     if (error) {
       if (/username/i.test(error.message)) {
-        showMessage('That username is already taken.', true);
+        showMessage(I18N.t('signup.taken'), true);
       } else if (/already registered/i.test(error.message)) {
-        showMessage('You already have an account with that email — use the link below to log in instead.', true);
+        showMessage(I18N.t('signup.exists'), true);
       } else {
         showMessage(error.message, true);
       }

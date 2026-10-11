@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   if (!window.sb) {
-    showMessage('Could not reach the service. Check your connection and try again.', true);
+    showMessage(I18N.t('err.noService'), true);
     return;
   }
 
@@ -32,24 +32,38 @@ document.addEventListener('DOMContentLoaded', async function () {
     // console instead of being swallowed by a generic message.
     console.error('profile.js: failed to load profile row', result.error);
     if (result.error && result.error.code === 'PGRST116') {
-      showMessage("No profile found for this account — the signup trigger may not have run. See docs/supabase-sql.md.", true);
+      showMessage(I18N.t('profile.noProfile'), true);
     } else if (result.error) {
-      showMessage('Could not load your profile: ' + result.error.message, true);
+      showMessage(I18N.t('profile.loadFail', { message: result.error.message }), true);
     } else {
-      showMessage("Couldn't load your profile. Try refreshing the page.", true);
+      showMessage(I18N.t('profile.loadFail2'), true);
     }
   } else {
     var p = result.data;
     var fullName = ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
-    document.getElementById('profileName').textContent = fullName || 'Your profile';
+    document.getElementById('profileName').textContent = fullName || I18N.t('profile.yourProfile');
     document.getElementById('profileUsername').textContent = '@' + p.username;
     document.getElementById('profileStreak').textContent = p.streak_days;
-    document.getElementById('profileCoins').textContent = Number(p.coins).toLocaleString('en-US');
+    document.getElementById('profileCoins').textContent = I18N.number(p.coins);
     document.getElementById('profileCard').hidden = false;
   }
 
   document.getElementById('logoutBtn').addEventListener('click', async function () {
     await window.sb.auth.signOut();
     window.location.href = 'index.html';
+  });
+
+  // Language switch. The choice is saved on the account (so it follows the
+  // user to other devices; needs profiles.language, see docs/supabase-sql.md)
+  // and on this device, then the page reloads in that language.
+  document.querySelectorAll('[data-lang-choice]').forEach(function (button) {
+    button.setAttribute('aria-pressed', button.dataset.langChoice === I18N.lang ? 'true' : 'false');
+    button.addEventListener('click', async function () {
+      var next = button.dataset.langChoice;
+      if (next === I18N.lang) return;
+      var saved = await window.sb.from('profiles').update({ language: next }).eq('id', session.user.id);
+      if (saved.error) console.warn('profile.js: could not save the language on the account', saved.error);
+      I18N.setLang(next);
+    });
   });
 });

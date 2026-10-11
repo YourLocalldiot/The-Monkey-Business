@@ -50,7 +50,12 @@
   }
 
   function fmt(n) {
-    return Math.round(n).toLocaleString('en-US');
+    return I18N.number(Math.round(n));
+  }
+
+  // One decimal place, with the language's decimal separator.
+  function pct(n) {
+    return I18N.number(n, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   }
 
   function showMessage(text, isError) {
@@ -105,7 +110,7 @@
     var price = state.prices[ticker];
     var cost = price * qty;
     if (cost > state.cash) {
-      return { ok: false, message: "Not enough banana-coins for " + qty + " shares of " + ticker + "." };
+      return { ok: false, message: I18N.t('sim.notEnough', { qty: qty, ticker: ticker }) };
     }
     var h = state.holdings[ticker] || { qty: 0, avgCost: 0 };
     var newQty = h.qty + qty;
@@ -121,7 +126,7 @@
     qty = Math.max(1, Math.floor(qty) || 0);
     var h = state.holdings[ticker];
     if (!h || h.qty < qty) {
-      return { ok: false, message: "You don't own " + qty + " shares of " + ticker + " to sell." };
+      return { ok: false, message: I18N.t('sim.dontOwn', { qty: qty, ticker: ticker }) };
     }
     var price = state.prices[ticker];
     h.qty -= qty;
@@ -165,7 +170,7 @@
       '<div class="sim-id">' +
         '<div class="sim-name">' + s.name + ' <span class="sim-ticker">' + s.ticker + '</span></div>' +
         '<div class="sim-holding' + (holding ? '' : ' muted') + '">' +
-          (holding ? 'You own ' + holding.qty + ' · avg 🍌' + fmt(holding.avgCost) : 'Not owned') +
+          (holding ? I18N.t('sim.owned', { qty: holding.qty, avg: fmt(holding.avgCost) }) : I18N.t('sim.notOwned')) +
         '</div>' +
       '</div>' +
       '<svg class="sim-spark" viewBox="0 0 70 24" preserveAspectRatio="none" aria-hidden="true">' +
@@ -175,12 +180,12 @@
       '</svg>' +
       '<div class="sim-price-block">' +
         '<div class="tnum sim-price-num">🍌' + fmt(price) + '</div>' +
-        '<div class="sim-change ' + (up ? 'up' : 'down') + '">' + (up ? '+' : '') + changePct.toFixed(1) + '%</div>' +
+        '<div class="sim-change ' + (up ? 'up' : 'down') + '">' + (up ? '+' : '') + pct(changePct) + '%</div>' +
       '</div>' +
       '<div class="sim-trade">' +
-        '<input type="number" class="sim-qty" min="1" step="1" value="1" aria-label="Shares of ' + s.ticker + '">' +
-        '<button type="button" class="sim-btn buy">Buy</button>' +
-        '<button type="button" class="sim-btn sell"' + (!holding ? ' disabled' : '') + '>Sell</button>' +
+        '<input type="number" class="sim-qty" min="1" step="1" value="1" aria-label="' + I18N.t('sim.sharesOf', { ticker: s.ticker }) + '">' +
+        '<button type="button" class="sim-btn buy">' + I18N.t('sim.buy') + '</button>' +
+        '<button type="button" class="sim-btn sell"' + (!holding ? ' disabled' : '') + '>' + I18N.t('sim.sell') + '</button>' +
       '</div>';
 
     var qtyInput = row.querySelector('.sim-qty');
@@ -213,7 +218,7 @@
     var pnlPct = (pnl / STARTING_CASH) * 100;
     var sign = pnl >= 0 ? '+' : '';
     var pnlEl = document.getElementById('simPnl');
-    pnlEl.textContent = sign + fmt(pnl) + ' (' + sign + pnlPct.toFixed(1) + '%)';
+    pnlEl.textContent = sign + fmt(pnl) + ' (' + sign + pct(pnlPct) + '%)';
 
     var pnlChip = document.getElementById('simPnlChip');
     pnlChip.classList.toggle('up', pnl >= 0);
@@ -228,7 +233,7 @@
     var holdingsEl = document.getElementById('holdingsList');
     var tickers = Object.keys(state.holdings);
     if (tickers.length === 0) {
-      holdingsEl.innerHTML = '<p class="goal-caption">No positions yet — buy a stock to get started.</p>';
+      holdingsEl.innerHTML = '<p class="goal-caption">' + I18N.t('sim.noPositions') + '</p>';
     } else {
       holdingsEl.innerHTML = tickers.map(function (t) {
         var h = state.holdings[t];
@@ -241,9 +246,9 @@
         var signH = upH ? '+' : '';
         return (
           '<div class="story-row"><div style="flex:1;">' +
-            '<div class="story-title">' + t + ' · ' + h.qty + ' sh</div>' +
-            '<div class="story-meta">Value 🍌' + fmt(value) + ' · ' +
-              '<span class="' + (upH ? 'up' : 'down') + '">' + signH + fmt(pnlH) + ' (' + signH + pnlPctH.toFixed(1) + '%)</span>' +
+            '<div class="story-title">' + I18N.t('sim.position', { ticker: t, qty: h.qty }) + '</div>' +
+            '<div class="story-meta">' + I18N.t('sim.value', { value: fmt(value) }) + ' · ' +
+              '<span class="' + (upH ? 'up' : 'down') + '">' + signH + fmt(pnlH) + ' (' + signH + pct(pnlPctH) + '%)</span>' +
             '</div>' +
           '</div></div>'
         );

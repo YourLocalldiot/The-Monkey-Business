@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   if (!window.sb) {
-    sub.textContent = 'Could not reach the service. Check your connection and try again.';
+    sub.textContent = I18N.t('err.noService');
     return;
   }
 
@@ -21,30 +21,30 @@ document.addEventListener('DOMContentLoaded', async function () {
   // session here means the link is missing, already used, or expired.
   var sessionResult = await window.sb.auth.getSession();
   if (!sessionResult.data.session) {
-    sub.textContent = 'This reset link is invalid or has expired.';
+    sub.textContent = I18N.t('reset.invalid');
     requestNewLink.hidden = false;
     return;
   }
 
-  sub.textContent = 'Enter a new password for your account.';
+  sub.textContent = I18N.t('reset.enter');
   form.hidden = false;
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
     if (form.password.value !== form.password_confirm.value) {
-      showMessage("Those passwords don't match.", true);
+      showMessage(I18N.t('signup.mismatch'), true);
       return;
     }
 
     var submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Updating…';
+    submitBtn.textContent = I18N.t('reset.updating');
 
     var { error } = await window.sb.auth.updateUser({ password: form.password.value });
 
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Update password';
+    submitBtn.textContent = I18N.t('reset.update');
 
     if (error) {
       showMessage(error.message, true);

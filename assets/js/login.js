@@ -31,14 +31,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (resendBtn) resendBtn.hidden = true;
 
     if (!window.sb) {
-      showMessage('Could not reach the sign-in service. Check your connection and try again.', true);
+      showMessage(I18N.t('login.noService'), true);
       return;
     }
 
     var email = form.email.value.trim();
     var submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Logging in…';
+    submitBtn.textContent = I18N.t('login.submitting');
 
     var { error } = await window.sb.auth.signInWithPassword({
       email: email,
@@ -46,11 +46,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Log in';
+    submitBtn.textContent = I18N.t('auth.login');
 
     if (error) {
       if (/email not confirmed/i.test(error.message)) {
-        showMessage("You haven't confirmed your email yet.", true);
+        showMessage(I18N.t('login.notConfirmed'), true);
         if (resendBtn) resendBtn.hidden = false;
       } else {
         showMessage(error.message, true);
@@ -66,23 +66,23 @@ document.addEventListener('DOMContentLoaded', async function () {
       if (!window.sb) return;
       var email = form.email.value.trim();
       if (!email) {
-        showMessage('Enter your email above first, then resend.', true);
+        showMessage(I18N.t('login.enterEmail'), true);
         return;
       }
       resendBtn.disabled = true;
-      resendBtn.textContent = 'Sending…';
+      resendBtn.textContent = I18N.t('common.sending');
 
       var { error } = await window.sb.auth.resend({ type: 'signup', email: email });
 
       resendBtn.disabled = false;
-      resendBtn.textContent = 'Resend confirmation email';
+      resendBtn.textContent = I18N.t('auth.resend');
 
       if (error) {
         showMessage(error.message, true);
         return;
       }
       resendBtn.hidden = true;
-      showMessage('Confirmation email sent — check your inbox.', false);
+      showMessage(I18N.t('login.sent'), false);
     });
   }
 });

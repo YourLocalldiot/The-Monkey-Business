@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     action.className = 'path-popup-action';
     action.dataset.itemType = item.type;
     action.dataset.itemId = item.refId;
-    action.textContent = isQuiz ? 'Play Quiz' : 'Watch Video';
+    action.textContent = I18N.t(isQuiz ? 'home.path.playQuiz' : 'home.path.watchVideo');
 
     popup.appendChild(title);
     popup.appendChild(action);
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (!items.length) {
       var note = document.createElement('p');
       note.className = 'path-empty';
-      note.textContent = 'Nothing in this playlist yet.';
+      note.textContent = I18N.t('home.path.empty');
       pathEl.appendChild(note);
       return;
     }
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       piece.className = 'path-piece ' + item.type;
       piece.style.setProperty('--row', index);
       piece.style.setProperty('--off', offsets[index]);
-      piece.setAttribute('aria-label', (item.type === 'quiz' ? 'Quiz: ' : 'Video: ') + item.name);
+      piece.setAttribute('aria-label', I18N.t(item.type === 'quiz' ? 'type.quiz' : 'type.video') + ': ' + item.name);
       piece.setAttribute('aria-expanded', 'false');
       piece.innerHTML = PIECE_ICONS[item.type];
       piece.addEventListener('click', function () {
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     var result = await window.sb.rpc('open_playlist', { p_playlist_id: id });
     if (result.error) {
       console.error('home.js: could not save the current playlist', result.error);
-      message.textContent = "Couldn't remember that choice, so it may switch back next time.";
+      message.textContent = I18N.t('home.saveFail');
       message.hidden = false;
       setOpen(true);
     }
@@ -251,13 +251,19 @@ document.addEventListener('DOMContentLoaded', async function () {
       .order('added_at', { ascending: false });
   }
 
-  var result = await loadPlaylists(
-    'display_name_en, playlist_items(position, item_type, video_id, quiz_id, videos(display_name_en), quizzes(display_name))');
-
-  // The CMS tables aren't there yet (docs/supabase-sql.md): still show the
-  // playlists, just without the path of pieces.
-  if (result.error && ['PGRST200', 'PGRST205', '42P01'].indexOf(result.error.code) !== -1) {
-    result = await loadPlaylists('display_name_en');
+  // The fullest query first. If the database doesn't have something yet
+  // (the CMS or Vietnamese-content SQL in docs/supabase-sql.md hasn't been
+  // run), fall back to a simpler one: fewer translations, or no path.
+  var ATTEMPTS = [
+    'display_name_en, display_name_vn, playlist_items(position, item_type, video_id, quiz_id, videos(display_name_en, display_name_vn), quizzes(display_name, display_name_vn))',
+    'display_name_en, display_name_vn, playlist_items(position, item_type, video_id, quiz_id, videos(display_name_en, display_name_vn), quizzes(display_name))',
+    'display_name_en, display_name_vn'
+  ];
+  var RETRY_CODES = ['42703', 'PGRST200', 'PGRST205', '42P01'];
+  var result;
+  for (var attempt = 0; attempt < ATTEMPTS.length; attempt++) {
+    result = await loadPlaylists(ATTEMPTS[attempt]);
+    if (!result.error || RETRY_CODES.indexOf(result.error.code) === -1) break;
   }
 
   if (result.error) {
@@ -272,7 +278,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       var contents = row.playlists.playlist_items;
       return {
         id: row.playlist_id,
-        name: row.playlists.display_name_en || 'Untitled playlist',
+        name: I18N.pick(row.playlists.display_name_vn, row.playlists.display_name_en) || I18N.t('home.untitled'),
         items: !contents ? null : contents.slice()
           .sort(function (a, b) { return a.position - b.position; })
           .map(function (entry) {
@@ -282,7 +288,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             return {
               type: entry.item_type,
               refId: isQuiz ? entry.quiz_id : entry.video_id,
-              name: (isQuiz ? target.display_name : target.display_name_en) || 'Untitled'
+              name: (isQuiz
+                ? I18N.pick(target.display_name_vn, target.display_name)
+                : I18N.pick(target.display_name_vn, target.display_name_en)) || I18N.t('home.untitledItem')
             };
           })
           .filter(Boolean)

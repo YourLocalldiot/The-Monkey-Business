@@ -11,7 +11,7 @@
     if (persist) {
       try { localStorage.setItem('theme', theme); } catch (e) {}
     }
-    document.querySelectorAll('.theme-switch button').forEach(function (btn) {
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
       btn.setAttribute('aria-pressed', btn.dataset.themeChoice === theme ? 'true' : 'false');
     });
   }
@@ -19,7 +19,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     applyTheme(resolveTheme(), false);
 
-    document.querySelectorAll('.theme-switch button').forEach(function (btn) {
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         applyTheme(btn.dataset.themeChoice, true);
       });

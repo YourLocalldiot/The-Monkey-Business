@@ -1,28 +1,29 @@
 // CMS → Quizzes tab: search quizzes, and edit a quiz's name, description,
 // questions, answers (with one or more marked correct) and per-question
-// time limit. A save goes through the save_quiz() database function
+// time limit, each in English and (optionally) Vietnamese. A save goes through the save_quiz() database function
 // (docs/supabase-sql.md), so the whole quiz is written all-or-nothing.
 (function () {
   var P = window.CMS;
   var el = P.el;
 
   var DETAIL_COLUMNS =
-    'id, display_name, description, ' +
-    'quiz_questions(id, position, prompt, time_limit_seconds, ' +
-    'quiz_options(id, position, option_text, is_correct))';
+    'id, display_name, display_name_vn, description, description_vn, ' +
+    'quiz_questions(id, position, prompt, prompt_vn, time_limit_seconds, ' +
+    'quiz_options(id, position, option_text, option_text_vn, is_correct))';
 
   function byPosition(a, b) {
     return (a.position - b.position) || (a.id - b.id);
   }
 
   function blankOption() {
-    return { id: null, option_text: '', is_correct: false };
+    return { id: null, option_text: '', option_text_vn: '', is_correct: false };
   }
 
   function blankQuestion() {
     return {
       id: null,
       prompt: '',
+      prompt_vn: '',
       time_limit_seconds: null,
       open: true,   // editor-only: whether the card is expanded
       options: [blankOption(), blankOption(), blankOption(), blankOption()]
@@ -30,7 +31,7 @@
   }
 
   function blankQuiz() {
-    return { id: null, display_name: '', description: '', questions: [blankQuestion()] };
+    return { id: null, display_name: '', display_name_vn: '', description: '', description_vn: '', questions: [blankQuestion()] };
   }
 
   // Empty, unticked answer rows are placeholders, not answers.
@@ -123,15 +124,18 @@
       openEditor({
         id: row.id,
         display_name: row.display_name || '',
+        display_name_vn: row.display_name_vn || '',
         description: row.description || '',
+        description_vn: row.description_vn || '',
         questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q, i) {
           return {
             id: q.id,
             prompt: q.prompt,
+            prompt_vn: q.prompt_vn || '',
             time_limit_seconds: q.time_limit_seconds,
             open: !!openIndexes && openIndexes.indexOf(i) !== -1,
             options: (q.quiz_options || []).slice().sort(byPosition).map(function (o) {
-              return { id: o.id, option_text: o.option_text, is_correct: o.is_correct };
+              return { id: o.id, option_text: o.option_text, option_text_vn: o.option_text_vn || '', is_correct: o.is_correct };
             })
           };
         })
@@ -152,9 +156,17 @@
         placeholder: 'What a P/E ratio really says',
         oninput: function () { state.display_name = nameInput.value; changed(); }
       });
+      var nameVnInput = el('input', {
+        type: 'text', maxlength: 200, value: state.display_name_vn,
+        oninput: function () { state.display_name_vn = nameVnInput.value; changed(); }
+      });
       var descInput = el('textarea', {
         rows: 2, maxlength: 2000, value: state.description,
         oninput: function () { state.description = descInput.value; changed(); }
+      });
+      var descVnInput = el('textarea', {
+        rows: 2, maxlength: 2000, value: state.description_vn,
+        oninput: function () { state.description_vn = descVnInput.value; changed(); }
       });
 
       var usage = el('p', { class: 'cms-editor-sub', hidden: isNew });
@@ -251,6 +263,10 @@
           rows: 2, maxlength: 1000, value: q.prompt, placeholder: 'Type the question',
           oninput: function () { q.prompt = prompt.value; refresh(); changed(); }
         });
+        var promptVn = el('textarea', {
+          rows: 2, maxlength: 1000, value: q.prompt_vn, placeholder: 'Câu hỏi bằng tiếng Việt (optional)',
+          oninput: function () { q.prompt_vn = promptVn.value; changed(); }
+        });
         var time = el('input', {
           type: 'number', min: 1, max: 3600, step: 1, inputmode: 'numeric', placeholder: 'No limit',
           value: q.time_limit_seconds === null ? '' : String(q.time_limit_seconds),
@@ -275,27 +291,35 @@
                 changed();
               }
             });
+            // Enter moves to the next answer (adding one after the last)
+            // instead of submitting the whole quiz.
+            function nextAnswer(e) {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (i === q.options.length - 1) {
+                q.options.push(blankOption());
+                renderOptions(i + 1);
+                changed();
+              } else {
+                optionsBox.children[i + 1].querySelector('.cms-opt-text').focus();
+              }
+            }
             var text = el('input', {
               type: 'text', class: 'cms-opt-text', maxlength: 500, value: option.option_text,
               placeholder: 'Answer ' + (i + 1),
               'aria-label': 'Answer ' + (i + 1) + ' of question ' + (index + 1),
               oninput: function () { option.option_text = text.value; refresh(); changed(); },
-              // Enter moves to the next answer (adding one after the last)
-              // instead of submitting the whole quiz.
-              onkeydown: function (e) {
-                if (e.key !== 'Enter') return;
-                e.preventDefault();
-                if (i === q.options.length - 1) {
-                  q.options.push(blankOption());
-                  renderOptions(i + 1);
-                  changed();
-                } else {
-                  optionsBox.children[i + 1].querySelector('.cms-opt-text').focus();
-                }
-              }
+              onkeydown: nextAnswer
+            });
+            var textVn = el('input', {
+              type: 'text', class: 'cms-opt-text vn', maxlength: 500, value: option.option_text_vn,
+              placeholder: 'Đáp án ' + (i + 1) + ' bằng tiếng Việt (optional)',
+              'aria-label': 'Answer ' + (i + 1) + ' of question ' + (index + 1) + ' in Vietnamese',
+              oninput: function () { option.option_text_vn = textVn.value; changed(); },
+              onkeydown: nextAnswer
             });
             row.appendChild(el('label', { class: 'cms-opt-correct' }, check, 'Correct'));
-            row.appendChild(text);
+            row.appendChild(el('div', { class: 'cms-opt-texts' }, text, textVn));
             row.appendChild(P.iconButton('Remove this answer', 'close', function () {
               q.options.splice(i, 1);
               renderOptions();
@@ -310,7 +334,8 @@
         }
         renderOptions();
 
-        body.appendChild(P.field('Question', prompt));
+        body.appendChild(P.field('Question (English)', prompt));
+        body.appendChild(P.field('Question (Vietnamese)', promptVn));
         body.appendChild(P.field('Time limit (seconds)', time, 'Leave empty for no time limit.', 'cms-q-time'));
         body.appendChild(el('div', { class: 'cms-options' },
           el('div', { class: 'cms-options-head' },
@@ -412,13 +437,16 @@
             p_quiz_id: state.id,
             p_display_name: state.display_name.trim(),
             p_description: state.description.trim(),
+            p_display_name_vn: state.display_name_vn.trim(),
+            p_description_vn: state.description_vn.trim(),
             p_questions: state.questions.map(function (q) {
               return {
                 id: q.id,
                 prompt: q.prompt.trim(),
+                prompt_vn: q.prompt_vn.trim(),
                 time_limit_seconds: q.time_limit_seconds,
                 options: q.options.filter(isFilled).map(function (o) {
-                  return { id: o.id, text: o.option_text.trim(), is_correct: !!o.is_correct };
+                  return { id: o.id, text: o.option_text.trim(), text_vn: o.option_text_vn.trim(), is_correct: !!o.is_correct };
                 })
               };
             })
@@ -461,8 +489,11 @@
       md.editor.appendChild(el('h2', { class: 'cms-editor-title', text: isNew ? 'New quiz' : 'Edit quiz' }));
       md.editor.appendChild(usage);
       md.editor.appendChild(el('form', { class: 'cms-form', novalidate: true, onsubmit: onSubmit },
-        P.field('Name', nameInput),
-        P.field('Description', descInput, 'Optional. A short summary, shown under the name in the quiz list.'),
+        el('div', { class: 'field-row' },
+          P.field('Name (English)', nameInput),
+          P.field('Name (Vietnamese)', nameVnInput, 'Optional. English is shown when empty.')),
+        P.field('Description (English)', descInput, 'Optional. A short summary, shown under the name in the quiz list.'),
+        P.field('Description (Vietnamese)', descVnInput),
         el('section', { class: 'cms-section' },
           el('div', { class: 'cms-section-head' },
             el('div', { class: 'cms-section-title' },

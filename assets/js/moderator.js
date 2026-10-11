@@ -137,7 +137,7 @@
     if (!error) return '';
     if (overrides && overrides[error.code]) return overrides[error.code];
     if (SETUP_CODES[error.code]) {
-      return 'The database is missing the CMS tables or functions. Run the CMS queries in docs/supabase-sql.md, then reload this page.';
+      return 'The database is missing a table, column or function the CMS needs. Run the SQL listed in docs/pending-supabase-sql.md, then reload this page.';
     }
     if (error.code === '42501') return "You don't have permission to do that.";
     return error.message || 'Something went wrong.';

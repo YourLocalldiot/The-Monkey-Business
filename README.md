@@ -23,7 +23,10 @@ css/styles.css                 Design tokens (colors, type, spacing) + all compo
 assets/fonts/                   Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
 assets/images/                  Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile, marketplace, files)
 assets/images/brand-guideline-extracted/  Official mascot/wordmark art pulled out of BRAND GUIDELINE.pptx, for reference
-assets/js/theme.js               Light/dark theme switch (localStorage + prefers-color-scheme)
+assets/js/theme.js               Light/dark theme (localStorage + prefers-color-scheme); the switch itself is on the Profile page
+assets/js/i18n.js                English/Vietnamese: picks the language, translates data-i18n text, I18N.t() / I18N.pick() for scripts
+assets/js/i18n-strings.js        Every piece of text in both languages (the dictionary)
+scripts/check-i18n.py            Checks the dictionary against the pages and scripts (run it after changing any text)
 assets/js/supabase-client.js     The one shared Supabase client (project URL + anon key live here)
 assets/js/auth.js                Session-driven UI: Log in/Profile toggle, moderator-only CMS link, Home's greeting name
 assets/js/password-toggle.js     Show/hide button wiring, shared by every password field on the site
@@ -54,8 +57,8 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - **Colors** — `#4d322b` ink, `#ffe8ac` cream, `#b9e7ec` sky, `#f8fdff` paper, plus a `#e79b34` honey accent for primary actions. All defined as CSS custom properties in `css/styles.css`, with a dark-mode palette alongside. Confirmed pixel-identical to `BRAND GUIDELINE.pptx`'s palette slide — see `docs/proposed-changes.md`.
 - **Type** — **Disko Phonic** for the brand wordmark only; **CDA Independence** (Deck weights) for all headings and (Text weights) for body copy. Both are explicitly named in the brand guideline too. See `assets/fonts/README.md` — it flags a licensing constraint on Disko Phonic that affects whether this repo can go public as-is.
 - **Icons** — Home/Tracker/Trading Simulation/Profile/Marketplace/Browse-playlists nav icons (28px) and the streak/currency (banana) stat-chip icons are all the supplied illustrated PNG set (`assets/images/`), matching the palette — Marketplace and Browse playlists reuse `marketplace.png` and `files.png`, which were already sitting in the folder unused rather than needing new placeholders. CMS has no supplied asset, so it's a plain inline SVG (shield/check) sized the same as the rest via the shared `.nav-icon` class. The sidebar brand mark and the topline avatar shortcut both use the real mascot art (`assets/images/logo-mark.png`) rather than the placeholder inline-SVG faces they started as.
-- **Theme** — the sidebar has a Light/Dark toggle (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
-- **i18n** — no language switch in the UI right now (the previous EN/VI sidebar toggle was replaced by the theme toggle above). Multi-language is still a core requirement per the brief, and the brand guideline's own tone-of-voice copy is Vietnamese — but which language(s) the live site actually ships in is an open product decision, not something built silently. See `docs/proposed-changes.md`.
+- **Theme** — a Light/Dark toggle on the Profile page (`assets/js/theme.js`); it persists the explicit choice in `localStorage` and otherwise follows the OS `prefers-color-scheme`. All colors are CSS custom properties, so both themes are already fully styled.
+- **i18n** — English and Vietnamese, switched on the Profile page; see "Languages" below.
 - **Home's empty state** — the static "Series 2 · Reading a business" lesson demo (continue-card + trail) is commented out in `index.html`, not deleted — search for "Saved for later" there. In its place: "You currently have no playlists" + a button to Browse playlists, matching the reference screenshot's style but with this site's own palette/components, not its indigo theme. That box now only shows for someone with no playlists (or a visitor who isn't signed in); once a user has added one, Home shows the current-playlist box instead (see Your playlists below).
 - **Account area** — Profile lives at the bottom of the sidebar (on mobile it rejoins the bottom tab bar as a 4th tab, matching the original mobile mockups) instead of in the main Home/Tracker/Simulation nav group, freeing up that spot for the Log in button. It now leads to a real `profile.html` (name, stats, Log out) instead of a dead link. The old "Educational content only..." disclaimer that used to sit under Home's content has since been removed.
 
@@ -85,6 +88,15 @@ The main nav has **Home**, **Tracker**, **Trading Simulation**, **Browse playlis
 - `browse-playlists.html` reads every row from a new `public.playlists` table (schema in `docs/supabase-sql.md`) and renders each as a collapsed row — icon, `display_name_en`, and a chevron. Clicking one expands it in place (chevron rotates 180°) to show `description_en` and the playlist's contents: its videos and quizzes in the order a moderator set in the CMS (video titles link out to YouTube), or "Contents coming soon." if it has none. Contents come from the `playlist_items` table; if the CMS SQL hasn't been run yet, the page falls back to listing the playlists without contents instead of breaking. (`playlists.contents_ids` is no longer used.)
 - Reading the table needs no login (`using (true)` on the select policy) since it's public content; only a moderator can insert/update/delete a playlist, reusing the same `is_moderator()` helper the `profiles` policies use.
 - The Home page's static "Series 2" lesson demo (a hardcoded example, not real data) was retired in favor of an empty state — see Design system below — so this is currently the only place playlist content actually shows up.
+
+## Languages (English / Vietnamese)
+
+- **The switch** is on the **Profile** page, next to the theme switch (which moved there from the sidebar). Choosing a language saves it on the account (`profiles.language`) and on the device, then reloads the page. Signed-in users get their account's language on every device. A visitor who isn't signed in has no switch: they get the browser's language (Vietnamese if it's Vietnamese, otherwise English).
+- **Interface text** lives in `assets/js/i18n-strings.js` (`en` and `vi`, one key per piece of text). In a page, an element carries `data-i18n="key"` (its own text is replaced; icons inside it are left alone) or `data-i18n-placeholder` / `-aria-label` / `-title` / `-alt` / `-content` for attributes. The English text is written in the HTML as usual. Text built by scripts uses `I18N.t('key', { name: value })`. Numbers use `I18N.number()` (Vietnamese writes 10.000 and 1,5).
+- **No flash of English:** for Vietnamese, `i18n.js` hides the page (`.i18n-pending`) until the last script in `<body>` (`I18N.apply()`) has translated it; a 1.5 s timeout reveals it regardless. English pages are never touched.
+- **Content from the database** is shown in the chosen language when a Vietnamese version exists, otherwise in English: playlist name/description, video name, quiz name, and the quiz's questions and answers. The CMS has a Vietnamese field next to each English one (Playlists and Videos already did; Quizzes gained them). The quiz columns, `profiles.language` and the updated `save_quiz` / `search_quizzes` are in the "Vietnamese content" section of `docs/supabase-sql.md`.
+- **Adding or changing text:** edit the dictionary (both languages), put `data-i18n` on the element, and run `python scripts/check-i18n.py`. It fails if a key is missing in either language, a `{placeholder}` differs, or the English written in a page no longer matches the dictionary.
+- **Not translated:** the CMS screens themselves (an internal tool; only its content fields are bilingual), and messages that come back from Supabase (like a wrong password), which are English. Company names, the brand name and "banamoney" stay as they are; the Vietnamese wording was drafted by Claude and should be read over by a native speaker.
 
 ## Your playlists (Home)
 
@@ -118,7 +130,8 @@ Things worth knowing:
 - Playlist item types beyond videos and quizzes (`playlist_items` is built to take more)
 - The Tracker page, and real progress tracking (which videos/quizzes in a playlist a user has finished); Home's current-playlist box only shows the playlist's name so far
 - Native mobile app (a future phase — the design tokens here are meant to carry over)
-- The i18n/language decision flagged in `docs/proposed-changes.md`
+- A language/theme switch for visitors who aren't signed in (both live on the Profile page, which needs an account; they follow the browser's language and the OS theme until then)
+- Translated CMS screens and translated server error messages (see "Languages")
 
 ## Local preview
 

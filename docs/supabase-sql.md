@@ -843,6 +843,233 @@ grant  execute on function public.open_playlist(bigint) to authenticated;
 
 Until this has been run, Home keeps showing "You currently have no playlists", and **Add playlist** shows an error instead of saving.
 
+## Vietnamese content (the language switch)
+
+**Run this after the `cms` query above.** The site can be shown in English or Vietnamese (the switch is on the Profile page). Playlists and videos already had `display_name_vn` / `description_vn` columns; this adds the same for quizzes (name, description, each question, each answer), adds `profiles.language` so a user's choice follows them to other devices, and replaces `save_quiz` and `search_quizzes` so the CMS can save and search the Vietnamese text.
+
+**Save as:** `i18n: vietnamese content + language`
+
+Safe to re-run. It drops the old four-argument `save_quiz` before creating the new one, because the API can't choose between two functions with the same name.
+
+```sql
+-- =====================================================================
+-- Vietnamese content + the account's language
+-- Run after the cms query (it replaces save_quiz and search_quizzes).
+-- =====================================================================
+
+-- 1. Vietnamese text next to the English, for the quiz content (playlists
+--    and videos already have *_vn columns). Empty means "show the English".
+alter table public.quizzes        add column if not exists display_name_vn text;
+alter table public.quizzes        add column if not exists description_vn  text;
+alter table public.quiz_questions add column if not exists prompt_vn       text;
+alter table public.quiz_options   add column if not exists option_text_vn  text;
+
+-- 2. Which language a signed-in user picked on their Profile page, so it
+--    follows them to other devices. null = no choice yet (the browser's
+--    language decides). Users can change their own row, same as their name.
+alter table public.profiles add column if not exists language text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_language_check') then
+    alter table public.profiles
+      add constraint profiles_language_check check (language is null or language in ('en', 'vi'));
+  end if;
+end $$;
+
+-- 3. save_quiz gets two more parameters (the Vietnamese name and
+--    description) and reads prompt_vn / text_vn from the questions JSON.
+--    A different parameter list would create a second function of the same
+--    name, which the API can't choose between, so the old one is dropped.
+drop function if exists public.save_quiz(bigint, text, text, jsonb);
+
+create or replace function public.save_quiz(
+  p_quiz_id         bigint,   -- null creates a new quiz
+  p_display_name    text,
+  p_description     text,
+  p_questions       jsonb,    -- [{"id": 4, "prompt": "...", "prompt_vn": "...", "time_limit_seconds": 30,
+                              --   "options": [{"id": 9, "text": "...", "text_vn": "...", "is_correct": true}, ...]}, ...]
+  p_display_name_vn text default null,
+  p_description_vn  text default null
+) returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_quiz_id   bigint := p_quiz_id;
+  v_q         jsonb;
+  v_o         jsonb;
+  v_q_pos     integer := 0;
+  v_o_pos     integer;
+  v_q_id      bigint;
+  v_o_id      bigint;
+  v_keep_q    bigint[] := '{}';
+  v_keep_o    bigint[];
+  v_prompt    text;
+  v_prompt_vn text;
+  v_text      text;
+  v_text_vn   text;
+  v_time      integer;
+  v_options   integer;
+  v_correct   integer;
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can edit quizzes.' using errcode = '42501';
+  end if;
+  if btrim(coalesce(p_display_name, '')) = '' then
+    raise exception 'The quiz needs a name.';
+  end if;
+  if jsonb_typeof(coalesce(p_questions, '[]'::jsonb)) <> 'array' then
+    raise exception 'The quiz questions must be a list.';
+  end if;
+
+  if v_quiz_id is null then
+    insert into public.quizzes (display_name, display_name_vn, description, description_vn)
+    values (
+      btrim(p_display_name),
+      nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+      nullif(btrim(coalesce(p_description, '')), ''),
+      nullif(btrim(coalesce(p_description_vn, '')), '')
+    )
+    returning id into v_quiz_id;
+  else
+    update public.quizzes
+       set display_name    = btrim(p_display_name),
+           display_name_vn = nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+           description     = nullif(btrim(coalesce(p_description, '')), ''),
+           description_vn  = nullif(btrim(coalesce(p_description_vn, '')), '')
+     where id = v_quiz_id;
+    if not found then
+      raise exception 'This quiz no longer exists. Reload the page and try again.';
+    end if;
+  end if;
+
+  for v_q in
+    select e.item from jsonb_array_elements(coalesce(p_questions, '[]'::jsonb)) as e(item)
+  loop
+    v_q_pos     := v_q_pos + 1;
+    v_prompt    := btrim(coalesce(v_q ->> 'prompt', ''));
+    v_prompt_vn := nullif(btrim(coalesce(v_q ->> 'prompt_vn', '')), '');
+    v_time      := nullif(v_q ->> 'time_limit_seconds', '')::integer;
+
+    if v_prompt = '' then
+      raise exception 'Question % needs some text.', v_q_pos;
+    end if;
+    if jsonb_typeof(coalesce(v_q -> 'options', '[]'::jsonb)) <> 'array' then
+      raise exception 'The answers of question % must be a list.', v_q_pos;
+    end if;
+
+    select count(*),
+           count(*) filter (where coalesce((o.opt ->> 'is_correct')::boolean, false))
+      into v_options, v_correct
+      from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as o(opt);
+    if v_options < 2 then
+      raise exception 'Question % needs at least two answers.', v_q_pos;
+    end if;
+    if v_correct < 1 then
+      raise exception 'Question % needs at least one correct answer.', v_q_pos;
+    end if;
+
+    v_q_id := nullif(v_q ->> 'id', '')::bigint;
+    if v_q_id is not null then
+      update public.quiz_questions
+         set position = v_q_pos, prompt = v_prompt, prompt_vn = v_prompt_vn, time_limit_seconds = v_time
+       where id = v_q_id and quiz_id = v_quiz_id;
+      if not found then
+        raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+      end if;
+    else
+      insert into public.quiz_questions (quiz_id, position, prompt, prompt_vn, time_limit_seconds)
+      values (v_quiz_id, v_q_pos, v_prompt, v_prompt_vn, v_time)
+      returning id into v_q_id;
+    end if;
+    v_keep_q := v_keep_q || v_q_id;
+
+    v_o_pos  := 0;
+    v_keep_o := '{}';
+    for v_o in
+      select e.item from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as e(item)
+    loop
+      v_o_pos   := v_o_pos + 1;
+      v_text    := btrim(coalesce(v_o ->> 'text', ''));
+      v_text_vn := nullif(btrim(coalesce(v_o ->> 'text_vn', '')), '');
+      if v_text = '' then
+        raise exception 'Answer % of question % needs some text.', v_o_pos, v_q_pos;
+      end if;
+
+      v_o_id := nullif(v_o ->> 'id', '')::bigint;
+      if v_o_id is not null then
+        update public.quiz_options
+           set position       = v_o_pos,
+               option_text    = v_text,
+               option_text_vn = v_text_vn,
+               is_correct     = coalesce((v_o ->> 'is_correct')::boolean, false)
+         where id = v_o_id and question_id = v_q_id;
+        if not found then
+          raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+        end if;
+      else
+        insert into public.quiz_options (question_id, position, option_text, option_text_vn, is_correct)
+        values (v_q_id, v_o_pos, v_text, v_text_vn, coalesce((v_o ->> 'is_correct')::boolean, false))
+        returning id into v_o_id;
+      end if;
+      v_keep_o := v_keep_o || v_o_id;
+    end loop;
+
+    delete from public.quiz_options where question_id = v_q_id and id <> all (v_keep_o);
+  end loop;
+
+  delete from public.quiz_questions where quiz_id = v_quiz_id and id <> all (v_keep_q);
+
+  return v_quiz_id;
+end;
+$$;
+
+revoke execute on function public.save_quiz(bigint, text, text, jsonb, text, text) from public, anon;
+grant  execute on function public.save_quiz(bigint, text, text, jsonb, text, text) to authenticated;
+
+-- 4. Quiz search now looks in the Vietnamese text too. (Same signature as
+--    before, so this simply replaces the function; its permissions stay.)
+create or replace function public.search_quizzes(p_query text default '')
+returns table (
+  id bigint,
+  display_name text,
+  description text,
+  created_at timestamptz,
+  question_count integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  with needle as (
+    select public.fold_text(btrim(coalesce(p_query, ''))) as q
+  )
+  select
+    qz.id,
+    qz.display_name,
+    qz.description,
+    qz.created_at,
+    (select count(*)::integer from public.quiz_questions qq where qq.quiz_id = qz.id)
+  from public.quizzes qz, needle
+  where needle.q = ''
+     or strpos(public.fold_text(qz.display_name), needle.q) > 0
+     or strpos(public.fold_text(qz.display_name_vn), needle.q) > 0
+     or strpos(public.fold_text(qz.description), needle.q) > 0
+     or strpos(public.fold_text(qz.description_vn), needle.q) > 0
+     or exists (
+       select 1 from public.quiz_questions qq
+        where qq.quiz_id = qz.id
+          and (strpos(public.fold_text(qq.prompt), needle.q) > 0
+               or strpos(public.fold_text(qq.prompt_vn), needle.q) > 0)
+     )
+  order by qz.created_at desc, qz.id desc;
+$$;
+```
+
+Until it has been run: the site still works (Browse playlists and Home fall back to English quiz names, and the language is remembered on the device only), but the **Quizzes tab in the CMS can't load or save**, because it now reads and writes the Vietnamese columns. Run this before opening the Quizzes tab.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

@@ -8,7 +8,15 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 
 ## Currently pending
 
-**Nothing.** As of that comparison, every snippet in `supabase-sql.md` appears to have been applied:
+### `i18n: vietnamese content + language`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Vietnamese content (the language switch)". Run it after the `cms` query.
+- **Why it's needed:** the CMS Quizzes tab now has Vietnamese fields for the quiz name, description, questions and answers, and `profiles.language` stores the language a user chose on their Profile page. It also replaces `save_quiz` (new Vietnamese arguments) and `search_quizzes` (searches the Vietnamese text too).
+- **Until it's run:** the CMS **Quizzes tab can't load or save** (it asks for columns that don't exist yet). The rest of the site works: quiz names fall back to English on Browse playlists and Home, and the chosen language is saved on the device only, not on the account.
+- **Added:** 2026-10-11.
+
+## Applied
+
+As of the comparison above, every other snippet in `supabase-sql.md` appears to have been applied:
 
 | Snippet (the "Save as" name) | What it covers |
 | --- | --- |
@@ -18,7 +26,7 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 | `cms: videos, quizzes, playlist contents` | videos, quizzes, questions/answers, playlist contents, and the save/search functions |
 | `user_playlists: schema + rls` | which playlists each user added, and the current one on Home |
 
-(That table is only a record of what the check found, so you can see what the file is tracking. It isn't a to-do list.)
+(That table is only a record of what the check found. It isn't a to-do list.)
 
 ## When something is pending, it's listed like this
 
