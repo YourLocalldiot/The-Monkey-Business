@@ -19,6 +19,7 @@ signup.html                     Sign up (first/last name + username + email + pa
 reset-password-request.html       Request a password reset email
 reset-password.html               Set a new password (the link from that email lands here)
 moderator.html                  CMS (moderator-only): edit playlists, quizzes and videos; look up a user and edit their coins/streak
+video.html                      Watch page: [x] back to Home + video name in a top bar, the YouTube player, a "Next" button (opened from Home's path)
 css/styles.css                 Design tokens (colors, type, spacing) + all component styles
 assets/fonts/                   Font files — Disko Phonic + CDA Independence (see assets/fonts/README.md, incl. a licensing note)
 assets/images/                  Logo, favicon, and the nav/stat icon set (home, tracker, simulator, streak, currency, profile, marketplace, files)
@@ -39,6 +40,10 @@ assets/js/moderator.js           CMS shell: access gate, tabs, and the helpers t
 assets/js/moderator-playlists.js CMS > Playlists: details + the ordered videos/quizzes inside, saved through save_playlist()
 assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions, answers, correct answers, time limits; saved through save_quiz()
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
+assets/js/quiz-import.js        Reads the quiz spreadsheet template (.xlsx/.csv) and validates it for the CMS Quizzes tab
+assets/templates/               TheMonkeyBusinessQuizTemplate.xlsx, the downloadable template for bulk-adding quiz questions
+assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)
+assets/js/video.js              Loads the video for video.html and embeds it
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
 assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"

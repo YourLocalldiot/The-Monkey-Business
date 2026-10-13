@@ -1070,6 +1070,211 @@ $$;
 
 Until it has been run: the site still works (Browse playlists and Home fall back to English quiz names, and the language is remembered on the device only), but the **Quizzes tab in the CMS can't load or save**, because it now reads and writes the Vietnamese columns. Run this before opening the Quizzes tab.
 
+## Quiz shuffling + Vietnamese for new accounts
+
+**Run this after the `i18n: vietnamese content + language` query above** (it replaces `save_quiz` again, and `handle_new_user`). It does two things:
+
+1. **Shuffle settings per quiz.** Adds `quizzes.shuffle_questions` and `quizzes.shuffle_answers` (the two switches in the CMS Quizzes tab, under "When the quiz is played"), and replaces `save_quiz` so it saves them. Nothing shuffles yet: there is no quiz player, so these are only stored until one is built.
+2. **Vietnamese by default for new accounts.** `handle_new_user` now creates every new profile with `language = 'vi'` (and the column's default is `'vi'`). Existing accounts are not touched; anyone can still switch to English on their Profile page.
+
+**Save as:** `quizzes: shuffle + default language`
+
+Safe to re-run. It drops the older `save_quiz` versions first, because the API can't choose between two functions with the same name. **Don't re-run the `i18n` query after this one**: it would bring the older `save_quiz` back next to this one.
+
+```sql
+-- =====================================================================
+-- Quiz shuffle settings + Vietnamese as the default language for new users
+-- Run after the i18n query (it needs the *_vn columns and profiles.language).
+-- =====================================================================
+
+-- 1. Shuffle switches on each quiz (off by default).
+alter table public.quizzes add column if not exists shuffle_questions boolean not null default false;
+alter table public.quizzes add column if not exists shuffle_answers   boolean not null default false;
+
+-- 2. New accounts start in Vietnamese. (A column default does not change
+--    existing rows.)
+alter table public.profiles alter column language set default 'vi';
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, username, first_name, last_name, coins, streak_days, language)
+  values (
+    new.id,
+    new.raw_user_meta_data ->> 'username',
+    coalesce(new.raw_user_meta_data ->> 'first_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'last_name', ''),
+    0,
+    0,
+    'vi'
+  );
+  return new;
+end;
+$$;
+
+-- 3. save_quiz also saves the two shuffle switches. Older versions are
+--    dropped first (see above).
+drop function if exists public.save_quiz(bigint, text, text, jsonb);
+drop function if exists public.save_quiz(bigint, text, text, jsonb, text, text);
+
+create or replace function public.save_quiz(
+  p_quiz_id         bigint,   -- null creates a new quiz
+  p_display_name    text,
+  p_description     text,
+  p_questions       jsonb,    -- [{"id": 4, "prompt": "...", "prompt_vn": "...", "time_limit_seconds": 30,
+                              --   "options": [{"id": 9, "text": "...", "text_vn": "...", "is_correct": true}, ...]}, ...]
+  p_display_name_vn text default null,
+  p_description_vn  text default null,
+  p_shuffle_questions boolean default null,   -- null = leave as it is (false for a new quiz)
+  p_shuffle_answers   boolean default null
+) returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_quiz_id   bigint := p_quiz_id;
+  v_q         jsonb;
+  v_o         jsonb;
+  v_q_pos     integer := 0;
+  v_o_pos     integer;
+  v_q_id      bigint;
+  v_o_id      bigint;
+  v_keep_q    bigint[] := '{}';
+  v_keep_o    bigint[];
+  v_prompt    text;
+  v_prompt_vn text;
+  v_text      text;
+  v_text_vn   text;
+  v_time      integer;
+  v_options   integer;
+  v_correct   integer;
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can edit quizzes.' using errcode = '42501';
+  end if;
+  if btrim(coalesce(p_display_name, '')) = '' then
+    raise exception 'The quiz needs a name.';
+  end if;
+  if jsonb_typeof(coalesce(p_questions, '[]'::jsonb)) <> 'array' then
+    raise exception 'The quiz questions must be a list.';
+  end if;
+
+  if v_quiz_id is null then
+    insert into public.quizzes (display_name, display_name_vn, description, description_vn, shuffle_questions, shuffle_answers)
+    values (
+      btrim(p_display_name),
+      nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+      nullif(btrim(coalesce(p_description, '')), ''),
+      nullif(btrim(coalesce(p_description_vn, '')), ''),
+      coalesce(p_shuffle_questions, false),
+      coalesce(p_shuffle_answers, false)
+    )
+    returning id into v_quiz_id;
+  else
+    update public.quizzes
+       set display_name    = btrim(p_display_name),
+           display_name_vn = nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+           description     = nullif(btrim(coalesce(p_description, '')), ''),
+           description_vn  = nullif(btrim(coalesce(p_description_vn, '')), ''),
+           shuffle_questions = coalesce(p_shuffle_questions, shuffle_questions),
+           shuffle_answers   = coalesce(p_shuffle_answers, shuffle_answers)
+     where id = v_quiz_id;
+    if not found then
+      raise exception 'This quiz no longer exists. Reload the page and try again.';
+    end if;
+  end if;
+
+  for v_q in
+    select e.item from jsonb_array_elements(coalesce(p_questions, '[]'::jsonb)) as e(item)
+  loop
+    v_q_pos     := v_q_pos + 1;
+    v_prompt    := btrim(coalesce(v_q ->> 'prompt', ''));
+    v_prompt_vn := nullif(btrim(coalesce(v_q ->> 'prompt_vn', '')), '');
+    v_time      := nullif(v_q ->> 'time_limit_seconds', '')::integer;
+
+    if v_prompt = '' then
+      raise exception 'Question % needs some text.', v_q_pos;
+    end if;
+    if jsonb_typeof(coalesce(v_q -> 'options', '[]'::jsonb)) <> 'array' then
+      raise exception 'The answers of question % must be a list.', v_q_pos;
+    end if;
+
+    select count(*),
+           count(*) filter (where coalesce((o.opt ->> 'is_correct')::boolean, false))
+      into v_options, v_correct
+      from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as o(opt);
+    if v_options < 2 then
+      raise exception 'Question % needs at least two answers.', v_q_pos;
+    end if;
+    if v_correct < 1 then
+      raise exception 'Question % needs at least one correct answer.', v_q_pos;
+    end if;
+
+    v_q_id := nullif(v_q ->> 'id', '')::bigint;
+    if v_q_id is not null then
+      update public.quiz_questions
+         set position = v_q_pos, prompt = v_prompt, prompt_vn = v_prompt_vn, time_limit_seconds = v_time
+       where id = v_q_id and quiz_id = v_quiz_id;
+      if not found then
+        raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+      end if;
+    else
+      insert into public.quiz_questions (quiz_id, position, prompt, prompt_vn, time_limit_seconds)
+      values (v_quiz_id, v_q_pos, v_prompt, v_prompt_vn, v_time)
+      returning id into v_q_id;
+    end if;
+    v_keep_q := v_keep_q || v_q_id;
+
+    v_o_pos  := 0;
+    v_keep_o := '{}';
+    for v_o in
+      select e.item from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as e(item)
+    loop
+      v_o_pos   := v_o_pos + 1;
+      v_text    := btrim(coalesce(v_o ->> 'text', ''));
+      v_text_vn := nullif(btrim(coalesce(v_o ->> 'text_vn', '')), '');
+      if v_text = '' then
+        raise exception 'Answer % of question % needs some text.', v_o_pos, v_q_pos;
+      end if;
+
+      v_o_id := nullif(v_o ->> 'id', '')::bigint;
+      if v_o_id is not null then
+        update public.quiz_options
+           set position       = v_o_pos,
+               option_text    = v_text,
+               option_text_vn = v_text_vn,
+               is_correct     = coalesce((v_o ->> 'is_correct')::boolean, false)
+         where id = v_o_id and question_id = v_q_id;
+        if not found then
+          raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+        end if;
+      else
+        insert into public.quiz_options (question_id, position, option_text, option_text_vn, is_correct)
+        values (v_q_id, v_o_pos, v_text, v_text_vn, coalesce((v_o ->> 'is_correct')::boolean, false))
+        returning id into v_o_id;
+      end if;
+      v_keep_o := v_keep_o || v_o_id;
+    end loop;
+
+    delete from public.quiz_options where question_id = v_q_id and id <> all (v_keep_o);
+  end loop;
+
+  delete from public.quiz_questions where quiz_id = v_quiz_id and id <> all (v_keep_q);
+
+  return v_quiz_id;
+end;
+$$;
+
+revoke execute on function public.save_quiz(bigint, text, text, jsonb, text, text, boolean, boolean) from public, anon;
+grant  execute on function public.save_quiz(bigint, text, text, jsonb, text, text, boolean, boolean) to authenticated;
+```
+
+Until it has been run: everything still works. The two shuffle switches in the CMS are disabled (and a quiz saves without them), and new accounts get their language from the browser, as before, rather than Vietnamese.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

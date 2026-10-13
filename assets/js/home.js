@@ -11,7 +11,8 @@
 // Under the box, the current playlist's videos and quizzes ("pieces") are
 // drawn as round buttons along a path that curves like Duolingo's lesson
 // path. Pressing a piece opens a small box with its name and a button to
-// open it (the button doesn't do anything yet).
+// open it: a video opens on the watch page (video.html); the quiz button
+// doesn't do anything yet.
 
 // How far each piece sits from the centre line, in piece widths, for a
 // curve of 5, 4 or 3 pieces. Every curve starts and ends on the centre line.
@@ -113,13 +114,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     title.className = 'path-popup-title';
     title.textContent = item.name;
 
-    // Not wired to anything yet.
     var action = document.createElement('button');
     action.type = 'button';
     action.className = 'path-popup-action';
     action.dataset.itemType = item.type;
     action.dataset.itemId = item.refId;
     action.textContent = I18N.t(isQuiz ? 'home.path.playQuiz' : 'home.path.watchVideo');
+    if (!isQuiz) {
+      action.addEventListener('click', function () {
+        window.location.href = 'video.html?id=' + encodeURIComponent(item.refId);
+      });
+    }
 
     popup.appendChild(title);
     popup.appendChild(action);

@@ -227,6 +227,35 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
    profile actually has role = 'moderator'. */
 .cms-link { display: none; }
 
+/* ---------- Sidebar: expand / collapse ----------
+   assets/js/sidebar.js adds the button and sets html[data-sidebar="collapsed"]
+   (remembered per device). On a laptop the collapsed sidebar shrinks to an
+   icon rail; on a phone the bottom tab bar slides away and leaves just the
+   handle to bring it back. */
+.sidebar-toggle {
+  position: absolute; top: 34px; right: -14px; z-index: 41;
+  width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--ink-70);
+  border: 1.5px solid var(--ink-20); box-shadow: var(--shadow-sm);
+  transition: background .15s ease, color .15s ease;
+}
+.sidebar-toggle:hover { background: var(--cream-soft); color: var(--ink); }
+.sidebar-toggle:focus-visible { outline-offset: 3px; border-radius: 50%; }
+.sidebar-toggle svg { transition: transform .2s ease; }
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar { transition: width .2s ease, flex-basis .2s ease, padding .2s ease, transform .2s ease; }
+}
+@media (min-width: 721px) {
+  html[data-sidebar="collapsed"] .sidebar { width: 76px; flex-basis: 76px; padding-left: 12px; padding-right: 12px; }
+  html[data-sidebar="collapsed"] .sidebar-toggle svg { transform: rotate(180deg); }
+  html[data-sidebar="collapsed"] .brand { justify-content: center; padding: 0; }
+  html[data-sidebar="collapsed"] .brand-name { display: none; }
+  /* Icons only: font-size 0 hides the label but keeps it for screen readers. */
+  html[data-sidebar="collapsed"] .nav-item { justify-content: center; gap: 0; padding: 10px 0; font-size: 0; }
+  html[data-sidebar="collapsed"] .login-btn { gap: 0; padding: 10px 0; font-size: 0; }
+}
+
 /* ---------- Canvas ---------- */
 .canvas { flex: 1; min-width: 0; padding: 34px 44px 64px; }
 .canvas-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
@@ -436,18 +465,19 @@ a.btn-primary { text-decoration: none; }
 
 /* Links to our social accounts, at the foot of the right-hand column. */
 .rail-footer { padding: 6px 0 2px; }
-/* Spread across the full column, so the outer buttons line up with the
-   cards above (like the icon row in Coddy's side bar). */
+/* Spread across the full column, so the outer icons line up with the
+   cards above (like the icon row in Coddy's side bar). Bare icons, no
+   circle behind them; the 44px box is kept as the tap target. */
 .social-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; }
 .social-btn {
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 44px; height: 44px;
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--ink-70); background: var(--surface); border: 1.5px solid var(--ink-20);
-  box-shadow: var(--shadow-sm);
-  transition: transform .15s ease, background .15s ease, color .15s ease;
+  color: var(--ink-70);
+  transition: transform .15s ease, color .15s ease;
 }
-.social-btn:hover { background: var(--cream-soft); color: var(--ink); transform: translateY(-2px); }
+.social-btn:hover { color: var(--ink); transform: translateY(-2px); }
 .social-btn:active { transform: translateY(0); }
+.social-btn svg { width: 24px; height: 24px; }
 .goal-top { display: flex; justify-content: space-between; align-items: baseline; }
 .goal-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .goal-caption { font-size: 12.5px; color: var(--ink-70); margin-top: 10px; }
@@ -719,19 +749,22 @@ a.btn-primary { text-decoration: none; }
 .cms-q.has-error { border-color: var(--bad); }
 .cms-q-head { display: flex; align-items: center; gap: 10px; }
 .cms-q-toggle {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 2px 0;
+  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding: 2px 0;
   background: none; border: none; text-align: left; color: var(--ink); font-family: var(--font-body);
 }
-.cms-q-chevron { flex: none; color: var(--ink-45); transition: transform .2s ease; transform: rotate(-90deg); }
+.cms-q-chevron { flex: none; margin-top: 2px; color: var(--ink-45); transition: transform .2s ease; transform: rotate(-90deg); }
+.cms-q-num { flex: none; }
 .cms-q[data-open="true"] .cms-q-chevron { transform: rotate(0deg); }
-.cms-q-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--ink-70); }
-.cms-q-meta { flex: none; font-size: 12px; font-weight: 700; color: var(--ink-45); white-space: nowrap; }
+/* The collapsed summary wraps over as many lines as the question needs. */
+.cms-q-title { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; font-size: 14px; color: var(--ink-70); }
+.cms-q-meta { flex: none; margin-top: 1px; font-size: 12px; font-weight: 700; color: var(--ink-45); white-space: nowrap; }
 .cms-q[data-open="true"] .cms-q-title, .cms-q[data-open="true"] .cms-q-meta { display: none; }
 .cms-q-body { display: flex; flex-direction: column; gap: 14px; }
 .cms-q-body[hidden] { display: none; }
 .cms-options-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .cms-section-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.cms-section-actions { display: flex; gap: 8px; }
+.cms-section-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+a.btn-small { text-decoration: none; }
 .cms-q-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .cms-q-kind { font-size: 12px; font-weight: 700; color: var(--ink-45); }
 .cms-q-tools { margin-left: auto; display: flex; gap: 6px; }
@@ -750,8 +783,39 @@ a.btn-primary { text-decoration: none; }
 .cms-opt-text.vn { font-size: 13px; color: var(--ink-70); border-top: 1px dashed var(--ink-20); border-radius: 0; }
 .cms-opt-text {
   flex: 1; min-width: 0; border: none; background: transparent; color: var(--ink);
-  font-family: var(--font-body); font-size: 14.5px; padding: 8px 4px;
+  font-family: var(--font-body); font-size: 14.5px; line-height: 1.4; padding: 8px 4px;
 }
+/* Textareas that grow with their text (see autoGrow in moderator-quizzes.js). */
+textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
+/* They sit in a column, so no flex-grow: the height is the text's own. */
+.cms-opt-texts .cms-opt-text { flex: 0 0 auto; width: 100%; }
+.cms-opt-text:focus-visible { outline-offset: 0; border-radius: 4px; }
+
+.cms-toggle {
+  display: flex; align-items: flex-start; gap: 12px; cursor: pointer;
+  padding: 12px 14px; border: 1.5px solid var(--ink-20); border-radius: var(--radius-s); background: var(--paper);
+}
+.cms-toggle input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--honey); }
+.cms-toggle input:disabled { cursor: not-allowed; }
+.cms-toggle-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; }
+
+/* Bulk add from a spreadsheet */
+.cms-bulk {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1.5px dashed var(--ink-20); border-radius: var(--radius-m);
+}
+.cms-bulk-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; min-width: 0; font-size: 14px; }
+.cms-import {
+  padding: 12px 14px; border-radius: var(--radius-s); font-size: 13.5px; line-height: 1.5;
+  border: 1.5px solid var(--ink-20); background: var(--paper); color: var(--ink-70);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cms-import[hidden] { display: none; }
+.cms-import.is-ok { border-color: var(--good); background: color-mix(in srgb, var(--good) 10%, var(--surface)); color: var(--ink); }
+.cms-import.is-error { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--surface)); color: var(--ink); }
+.cms-import-text { font-weight: 700; }
+.cms-import.is-error .cms-import-text { color: var(--bad); }
+.cms-import-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; }
 .cms-opt-text::placeholder { color: var(--ink-45); }
 .cms-add-row { align-self: flex-start; }
 
@@ -825,4 +889,70 @@ a.btn-primary { text-decoration: none; }
   }
 
   .canvas { padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); }
+
+  /* The handle sits on the bar's top edge, centred. Collapsed, the bar
+     slides down and only the handle (and a sliver above the home
+     indicator) stays on screen. */
+  .sidebar-toggle {
+    top: auto; right: auto; left: 50%; bottom: 100%;
+    width: 56px; height: 24px; border-radius: 14px 14px 0 0; border-bottom: none;
+    transform: translateX(-50%); box-shadow: 0 -4px 10px -6px rgba(77,50,43,.22);
+  }
+  .sidebar-toggle:focus-visible { border-radius: 14px 14px 0 0; }
+  .sidebar-toggle svg { transform: rotate(-90deg); }
+  html[data-sidebar="collapsed"] .sidebar { transform: translateY(calc(100% - env(safe-area-inset-bottom))); }
+  html[data-sidebar="collapsed"] .sidebar-toggle svg { transform: rotate(90deg); }
+  html[data-sidebar="collapsed"] .sidebar > :not(.sidebar-toggle) { visibility: hidden; transition: visibility 0s .2s; }
+  html[data-sidebar="collapsed"] .canvas { padding-bottom: calc(44px + env(safe-area-inset-bottom)); }
+  html[data-sidebar="collapsed"] .cms-actions { bottom: calc(26px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- Watch page (video.html) ---------- */
+.video-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--paper); }
+.video-bar {
+  display: flex; align-items: center; gap: 14px;
+  padding: calc(12px + env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+  background: var(--surface); border-bottom: 1.5px solid var(--ink-20); box-shadow: var(--shadow-sm);
+}
+.video-close {
+  width: 40px; height: 40px; flex: none; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink); text-decoration: none; border: 1.5px solid var(--ink-20);
+  transition: background .15s ease;
+}
+.video-close:hover { background: var(--paper); }
+.video-title { flex: 1; min-width: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
+.video-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 20px; }
+/* A 16:9 box as large as fits between the two bars, never wider than the page. */
+.video-frame {
+  position: relative; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
+  width: min(100%, 1100px, calc((100vh - 190px) * 16 / 9));
+  width: min(100%, 1100px, calc((100dvh - 190px) * 16 / 9));
+  background: var(--ink); border-radius: var(--radius-m); overflow: hidden; box-shadow: var(--shadow-lg);
+}
+.video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-note { padding: 20px; text-align: center; font-weight: 600; color: var(--paper); }
+.video-note[hidden] { display: none; }
+.video-foot {
+  display: flex; justify-content: center;
+  padding: 14px max(20px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  background: var(--surface); border-top: 1.5px solid var(--ink-20);
+}
+.video-next {
+  width: min(100%, 280px); padding: 13px 36px; border: none; border-radius: 8px;
+  background: var(--ink); color: var(--cream-soft); font-weight: 700; font-size: 15px;
+  box-shadow: var(--shadow-md); transition: transform .15s ease;
+}
+.video-next:hover { transform: translateY(-1px); }
+.video-next:active { transform: translateY(0); }
+@media (max-height: 520px) {
+  .video-bar { padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+  .video-stage { padding: 10px 20px; }
+  .video-foot { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .video-frame { width: min(100%, 1100px, calc((100vh - 130px) * 16 / 9)); width: min(100%, 1100px, calc((100dvh - 130px) * 16 / 9)); }
+}
+@media (max-width: 560px) {
+  .video-stage { padding: 12px; }
+  .video-title { font-size: 16px; }
+  .video-frame { border-radius: var(--radius-s); }
 }

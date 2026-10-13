@@ -60,7 +60,9 @@
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     plus:  '<path d="M12 5v14M5 12h14"/>',
     chevron: '<path d="M6 9l6 6 6-6"/>',
-    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'
+    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    upload: '<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>'
   };
 
   CMS.icon = function (name, size) {

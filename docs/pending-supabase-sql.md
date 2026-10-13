@@ -14,6 +14,12 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 - **Until it's run:** the CMS **Quizzes tab can't load or save** (it asks for columns that don't exist yet). The rest of the site works: quiz names fall back to English on Browse playlists and Home, and the chosen language is saved on the device only, not on the account.
 - **Added:** 2026-10-11.
 
+### `quizzes: shuffle + default language`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz shuffling + Vietnamese for new accounts". Run it **after** `i18n: vietnamese content + language` (and don't re-run the `i18n` query afterwards).
+- **Why it's needed:** adds `quizzes.shuffle_questions` / `quizzes.shuffle_answers` (the two "shuffle" switches in the CMS Quizzes tab) and replaces `save_quiz` to save them. It also makes new accounts start in Vietnamese (`handle_new_user` sets `profiles.language = 'vi'`).
+- **Until it's run:** the CMS shuffle switches are disabled, and a quiz saves without them. New accounts still pick up Vietnamese on the device they signed up on (the sign-up page stores it), but the account itself has no language saved, so on another device the browser's language decides.
+- **Added:** 2026-10-13.
+
 ## Applied
 
 As of the comparison above, every other snippet in `supabase-sql.md` appears to have been applied:

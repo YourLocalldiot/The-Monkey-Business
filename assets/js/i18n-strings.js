@@ -20,6 +20,8 @@ window.TMB_STRINGS = {
     "page.resetRequest.desc": "Request a password reset link.",
     "page.reset.title": "Choose a new password — The Monkey Business",
     "page.reset.desc": "Set a new password for your account.",
+    "page.video.title": "Watch — The Monkey Business",
+    "page.video.desc": "Watch a video from your playlist.",
 
     "brand.home": "The Monkey Business — Home",
     "nav.primary": "Primary",
@@ -30,6 +32,8 @@ window.TMB_STRINGS = {
     "nav.marketplace": "Marketplace",
     "nav.profile": "Profile",
     "nav.login": "Log in",
+    "nav.collapse": "Collapse the navigation bar",
+    "nav.expand": "Expand the navigation bar",
 
     "social.nav": "The Monkey Business on social media",
     "social.facebook": "Facebook (opens in a new tab)",
@@ -74,6 +78,13 @@ window.TMB_STRINGS = {
     "home.sim.game2": "Build a 10-year portfolio",
     "home.diff.easy": "Easy",
     "home.diff.hard": "Hard",
+
+    "video.back": "Back to Home",
+    "video.next": "Next",
+    "video.loading": "Loading the video…",
+    "video.notFound": "We couldn't find that video.",
+    "video.loadFail": "Couldn't load the video. Check your connection and try again.",
+    "video.badLink": "This video's link can't be played here.",
 
     "market.eyebrow": "Spend your banamoney",
     "market.title": "Marketplace",
@@ -206,6 +217,8 @@ window.TMB_STRINGS = {
     "page.resetRequest.desc": "Yêu cầu liên kết đặt lại mật khẩu.",
     "page.reset.title": "Chọn mật khẩu mới — The Monkey Business",
     "page.reset.desc": "Đặt mật khẩu mới cho tài khoản của bạn.",
+    "page.video.title": "Xem video — The Monkey Business",
+    "page.video.desc": "Xem một video trong playlist của bạn.",
 
     "brand.home": "The Monkey Business — Trang chủ",
     "nav.primary": "Điều hướng chính",
@@ -216,6 +229,8 @@ window.TMB_STRINGS = {
     "nav.marketplace": "Cửa hàng",
     "nav.profile": "Hồ sơ",
     "nav.login": "Đăng nhập",
+    "nav.collapse": "Thu gọn thanh điều hướng",
+    "nav.expand": "Mở rộng thanh điều hướng",
 
     "social.nav": "The Monkey Business trên mạng xã hội",
     "social.facebook": "Facebook (mở trong tab mới)",
@@ -260,6 +275,13 @@ window.TMB_STRINGS = {
     "home.sim.game2": "Xây danh mục đầu tư 10 năm",
     "home.diff.easy": "Dễ",
     "home.diff.hard": "Khó",
+
+    "video.back": "Về Trang chủ",
+    "video.next": "Tiếp theo",
+    "video.loading": "Đang tải video…",
+    "video.notFound": "Khỉ không tìm thấy video này.",
+    "video.loadFail": "Không tải được video. Hãy kiểm tra mạng rồi thử lại.",
+    "video.badLink": "Đường dẫn của video này không phát được ở đây.",
 
     "market.eyebrow": "Tiêu banamoney của bạn",
     "market.title": "Cửa hàng",

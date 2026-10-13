@@ -1,15 +1,37 @@
 // CMS → Quizzes tab: search quizzes, and edit a quiz's name, description,
 // questions, answers (with one or more marked correct) and per-question
-// time limit, each in English and (optionally) Vietnamese. A save goes through the save_quiz() database function
+// time limit, each in English and (optionally) Vietnamese, plus whether the
+// questions and the answers are shuffled when the quiz is played. Questions
+// can also be added in bulk from a spreadsheet (assets/js/quiz-import.js).
+// A save goes through the save_quiz() database function
 // (docs/supabase-sql.md), so the whole quiz is written all-or-nothing.
 (function () {
   var P = window.CMS;
   var el = P.el;
 
-  var DETAIL_COLUMNS =
-    'id, display_name, display_name_vn, description, description_vn, ' +
+  var DETAIL_BASE =
+    'id, display_name, display_name_vn, description, description_vn, ';
+  var DETAIL_QUESTIONS =
     'quiz_questions(id, position, prompt, prompt_vn, time_limit_seconds, ' +
     'quiz_options(id, position, option_text, option_text_vn, is_correct))';
+  var SHUFFLE_COLUMNS = 'shuffle_questions, shuffle_answers, ';
+
+  function fetchQuiz(id) {
+    return window.sb.from('quizzes').select(DETAIL_BASE + SHUFFLE_COLUMNS + DETAIL_QUESTIONS).eq('id', id).single();
+  }
+
+  // Makes a textarea as tall as its text, so long questions and answers wrap
+  // and stay fully visible instead of scrolling sideways or being cut off.
+  // Does nothing while the textarea is hidden (there is nothing to measure).
+  function autoGrow(box) {
+    if (!box.getClientRects().length) return;
+    box.style.height = 'auto';
+    box.style.height = (box.scrollHeight + box.offsetHeight - box.clientHeight) + 'px';
+  }
+
+  function growWithin(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('textarea.cms-grow'), autoGrow);
+  }
 
   function byPosition(a, b) {
     return (a.position - b.position) || (a.id - b.id);
@@ -31,7 +53,13 @@
   }
 
   function blankQuiz() {
-    return { id: null, display_name: '', display_name_vn: '', description: '', description_vn: '', questions: [blankQuestion()] };
+    return {
+      id: null,
+      display_name: '', display_name_vn: '', description: '', description_vn: '',
+      shuffle_questions: false, shuffle_answers: false,
+      shuffle_supported: true,   // unknown until the first save for a new quiz
+      questions: [blankQuestion()]
+    };
   }
 
   // Empty, unticked answer rows are placeholders, not answers.
@@ -107,11 +135,14 @@
       showPlaceholder('Loading…');
       var token = editorToken;
 
-      var result = await window.sb
-        .from('quizzes')
-        .select(DETAIL_COLUMNS)
-        .eq('id', id)
-        .single();
+      var result = await fetchQuiz(id);
+      var shuffleSupported = true;
+      // The shuffle columns come from the quiz-shuffle SQL (docs/pending-supabase-sql.md).
+      // Until it has been run, load the quiz without them rather than not at all.
+      if (result.error && result.error.code === '42703') {
+        shuffleSupported = false;
+        result = await window.sb.from('quizzes').select(DETAIL_BASE + DETAIL_QUESTIONS).eq('id', id).single();
+      }
       if (token !== editorToken) return;
 
       if (result.error) {
@@ -127,6 +158,9 @@
         display_name_vn: row.display_name_vn || '',
         description: row.description || '',
         description_vn: row.description_vn || '',
+        shuffle_questions: !!row.shuffle_questions,
+        shuffle_answers: !!row.shuffle_answers,
+        shuffle_supported: shuffleSupported,
         questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q, i) {
           return {
             id: q.id,
@@ -182,6 +216,16 @@
 
       // ----- questions -----
       var questionsBox = el('div', { class: 'cms-questions' });
+      // Text wraps differently when the width changes (window resized, tab
+      // shown, sidebar collapsed), so re-measure then.
+      if (window.ResizeObserver) {
+        var lastWidth = 0;
+        new ResizeObserver(function () {
+          if (questionsBox.clientWidth === lastWidth) return;
+          lastWidth = questionsBox.clientWidth;
+          growWithin(questionsBox);
+        }).observe(questionsBox);
+      }
 
       function renderQuestions(focusIndex, focusAction) {
         P.clear(questionsBox);
@@ -191,6 +235,7 @@
         state.questions.forEach(function (question, index) {
           questionsBox.appendChild(questionCard(question, index));
         });
+        growWithin(questionsBox);
         if (focusIndex !== undefined) {
           var card = questionsBox.children[focusIndex];
           var wanted = card && card.querySelector('[data-action="' + focusAction + '"]');
@@ -249,6 +294,7 @@
             card.dataset.open = q.open ? 'true' : 'false';
             body.hidden = !q.open;
             toggle.setAttribute('aria-expanded', q.open ? 'true' : 'false');
+            if (q.open) growWithin(body);
           }
         }, chevron, el('span', { class: 'cms-q-num', text: 'Question ' + (index + 1) }), title, meta);
 
@@ -260,12 +306,12 @@
         down.disabled = index === state.questions.length - 1;
 
         var prompt = el('textarea', {
-          rows: 2, maxlength: 1000, value: q.prompt, placeholder: 'Type the question',
-          oninput: function () { q.prompt = prompt.value; refresh(); changed(); }
+          rows: 2, class: 'cms-grow', maxlength: 1000, value: q.prompt, placeholder: 'Type the question',
+          oninput: function () { q.prompt = prompt.value; autoGrow(prompt); refresh(); changed(); }
         });
         var promptVn = el('textarea', {
-          rows: 2, maxlength: 1000, value: q.prompt_vn, placeholder: 'Câu hỏi bằng tiếng Việt (optional)',
-          oninput: function () { q.prompt_vn = promptVn.value; changed(); }
+          rows: 2, class: 'cms-grow', maxlength: 1000, value: q.prompt_vn, placeholder: 'Câu hỏi bằng tiếng Việt (optional)',
+          oninput: function () { q.prompt_vn = promptVn.value; autoGrow(promptVn); changed(); }
         });
         var time = el('input', {
           type: 'number', min: 1, max: 3600, step: 1, inputmode: 'numeric', placeholder: 'No limit',
@@ -304,18 +350,20 @@
                 optionsBox.children[i + 1].querySelector('.cms-opt-text').focus();
               }
             }
-            var text = el('input', {
-              type: 'text', class: 'cms-opt-text', maxlength: 500, value: option.option_text,
+            // Textareas that grow with their text (one line to start with), so
+            // a long answer wraps instead of being cut off.
+            var text = el('textarea', {
+              rows: 1, class: 'cms-opt-text cms-grow', maxlength: 500, value: option.option_text,
               placeholder: 'Answer ' + (i + 1),
               'aria-label': 'Answer ' + (i + 1) + ' of question ' + (index + 1),
-              oninput: function () { option.option_text = text.value; refresh(); changed(); },
+              oninput: function () { option.option_text = text.value; autoGrow(text); refresh(); changed(); },
               onkeydown: nextAnswer
             });
-            var textVn = el('input', {
-              type: 'text', class: 'cms-opt-text vn', maxlength: 500, value: option.option_text_vn,
+            var textVn = el('textarea', {
+              rows: 1, class: 'cms-opt-text cms-grow vn', maxlength: 500, value: option.option_text_vn,
               placeholder: 'Đáp án ' + (i + 1) + ' bằng tiếng Việt (optional)',
               'aria-label': 'Answer ' + (i + 1) + ' of question ' + (index + 1) + ' in Vietnamese',
-              oninput: function () { option.option_text_vn = textVn.value; changed(); },
+              oninput: function () { option.option_text_vn = textVn.value; autoGrow(textVn); changed(); },
               onkeydown: nextAnswer
             });
             row.appendChild(el('label', { class: 'cms-opt-correct' }, check, 'Correct'));
@@ -328,6 +376,7 @@
             optionsBox.appendChild(row);
           });
           refresh();
+          growWithin(optionsBox);
           if (focusIndex !== undefined && optionsBox.children[focusIndex]) {
             optionsBox.children[focusIndex].querySelector('.cms-opt-text').focus();
           }
@@ -362,6 +411,102 @@
       }
 
       renderQuestions();
+
+      // ----- add questions from a spreadsheet -----
+      var importBox = el('div', { class: 'cms-import', role: 'status', hidden: true });
+
+      // kind: 'info' | 'ok' | 'error'. problems: [{ row, message }]
+      function showImport(kind, text, problems) {
+        P.clear(importBox);
+        importBox.hidden = false;
+        importBox.className = 'cms-import is-' + kind;
+        importBox.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+        importBox.appendChild(el('p', { class: 'cms-import-text', text: text }));
+        if (problems && problems.length) {
+          var shown = problems.slice(0, 25);
+          importBox.appendChild(el('ul', { class: 'cms-import-list' }, shown.map(function (p) {
+            return el('li', null, p.row ? el('strong', { text: 'Row ' + p.row + ': ' }) : null, p.message);
+          })));
+          if (problems.length > shown.length) {
+            importBox.appendChild(el('p', { class: 'cms-hint', text: '…and ' + (problems.length - shown.length) + ' more.' }));
+          }
+        }
+      }
+
+      var fileInput = el('input', {
+        type: 'file', accept: '.xlsx,.csv', hidden: true, tabindex: '-1', 'aria-hidden': 'true',
+        onchange: onFileChosen
+      });
+      var uploadBtn = el('button', {
+        type: 'button', class: 'btn-secondary btn-small',
+        onclick: function () { fileInput.click(); }
+      }, P.icon('upload', 14), 'Upload questions');
+      var templateLink = el('a', {
+        class: 'btn-secondary btn-small', href: window.QuizImport.TEMPLATE_URL,
+        download: 'TheMonkeyBusinessQuizTemplate.xlsx'
+      }, P.icon('download', 14), 'Download template');
+
+      // A question nobody has typed into yet (the empty one a new quiz starts with).
+      function isUntouched(q) {
+        return q.id === null && !q.prompt.trim() && !q.prompt_vn.trim() &&
+          !q.options.some(function (o) { return isFilled(o) || o.option_text_vn.trim() !== ''; });
+      }
+
+      async function onFileChosen() {
+        var file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';   // so choosing the same file again still fires
+        if (!file) return;
+
+        showImport('info', 'Reading ' + file.name + '…');
+        uploadBtn.disabled = true;
+        var result = await window.QuizImport.parseFile(file);
+        uploadBtn.disabled = false;
+        if (token !== editorToken) return;   // another quiz was opened meanwhile
+
+        if (result.problems.length) {
+          var count = result.problems.length;
+          showImport('error',
+            'Nothing was added: "' + file.name + '" has ' + (count === 1 ? 'a problem' : count + ' problems') +
+            '. Fix ' + (count === 1 ? 'it' : 'them') + ' in the file and upload it again.',
+            result.problems);
+          return;
+        }
+
+        state.questions = state.questions.filter(function (q) { return !isUntouched(q); });
+        var firstNew = state.questions.length;
+        result.questions.forEach(function (q) { state.questions.push(q); });
+        renderQuestions();
+        changed();
+        var n = result.questions.length;
+        showImport('ok',
+          'Added ' + n + (n === 1 ? ' question' : ' questions') + ' from "' + file.name + '" (' +
+          (n === 1 ? 'question ' + (firstNew + 1) : 'questions ' + (firstNew + 1) + '–' + (firstNew + n)) +
+          '). Review them, then press ' + (isNew ? 'Create quiz' : 'Save changes') + ' to keep them.');
+        var card = questionsBox.children[firstNew];
+        if (card) card.scrollIntoView({ block: 'nearest' });
+      }
+
+      // ----- shuffle options -----
+      var orderHint = el('span', { class: 'cms-hint' });
+      function refreshOrderHint() {
+        orderHint.textContent = state.shuffle_questions ? 'Asked in a random order' : 'Asked in this order';
+      }
+      refreshOrderHint();
+
+      function toggleRow(key, title, hint) {
+        var box = el('input', {
+          type: 'checkbox', checked: !!state[key], disabled: !state.shuffle_supported,
+          onchange: function () {
+            state[key] = box.checked;
+            refreshOrderHint();
+            changed();
+          }
+        });
+        return el('label', { class: 'cms-toggle' }, box,
+          el('span', { class: 'cms-toggle-text' },
+            el('strong', { text: title }),
+            el('span', { class: 'field-hint', text: hint })));
+      }
 
       // ----- actions -----
       var statusEl = el('span', { class: 'cms-status', role: 'status', hidden: true });
@@ -431,29 +576,45 @@
         var openIndexes = [];
         state.questions.forEach(function (q, i) { if (q.open) openIndexes.push(i); });
 
+        var args = {
+          p_quiz_id: state.id,
+          p_display_name: state.display_name.trim(),
+          p_description: state.description.trim(),
+          p_display_name_vn: state.display_name_vn.trim(),
+          p_description_vn: state.description_vn.trim(),
+          p_questions: state.questions.map(function (q) {
+            return {
+              id: q.id,
+              prompt: q.prompt.trim(),
+              prompt_vn: q.prompt_vn.trim(),
+              time_limit_seconds: q.time_limit_seconds,
+              options: q.options.filter(isFilled).map(function (o) {
+                return { id: o.id, text: o.option_text.trim(), text_vn: o.option_text_vn.trim(), is_correct: !!o.is_correct };
+              })
+            };
+          })
+        };
+        var wantsShuffle = state.shuffle_questions || state.shuffle_answers;
+
         P.status(statusEl, 'Saving…');
-        var result = await P.withBusy([saveBtn, deleteBtn], function () {
-          return window.sb.rpc('save_quiz', {
-            p_quiz_id: state.id,
-            p_display_name: state.display_name.trim(),
-            p_description: state.description.trim(),
-            p_display_name_vn: state.display_name_vn.trim(),
-            p_description_vn: state.description_vn.trim(),
-            p_questions: state.questions.map(function (q) {
-              return {
-                id: q.id,
-                prompt: q.prompt.trim(),
-                prompt_vn: q.prompt_vn.trim(),
-                time_limit_seconds: q.time_limit_seconds,
-                options: q.options.filter(isFilled).map(function (o) {
-                  return { id: o.id, text: o.option_text.trim(), text_vn: o.option_text_vn.trim(), is_correct: !!o.is_correct };
-                })
-              };
-            })
+        var result = await P.withBusy([saveBtn, deleteBtn], async function () {
+          var withShuffle = Object.assign({}, args, {
+            p_shuffle_questions: state.shuffle_questions,
+            p_shuffle_answers: state.shuffle_answers
           });
+          var saved = await window.sb.rpc('save_quiz', withShuffle);
+          // PGRST202: the database's save_quiz doesn't take the shuffle
+          // settings yet (the quiz-shuffle SQL hasn't been run). With both
+          // switches off there is nothing to lose, so save the old way.
+          if (saved.error && saved.error.code === 'PGRST202' && !wantsShuffle) {
+            saved = await window.sb.rpc('save_quiz', args);
+          }
+          return saved;
         });
         if (result.error) {
-          P.status(statusEl, P.errorText(result.error), 'error');
+          P.status(statusEl, P.errorText(result.error, wantsShuffle ? {
+            PGRST202: 'Shuffling needs a database update that has not been run yet (see docs/pending-supabase-sql.md). Run it, or switch both shuffle options off to save without it.'
+          } : null), 'error');
           return;
         }
         // Reload from the database so new questions and answers pick up
@@ -496,12 +657,24 @@
         P.field('Description (Vietnamese)', descVnInput),
         el('section', { class: 'cms-section' },
           el('div', { class: 'cms-section-head' },
+            el('h3', { text: 'When the quiz is played' }),
+            state.shuffle_supported ? null : el('span', { class: 'cms-hint', text: 'Needs a database update (docs/pending-supabase-sql.md)' })),
+          toggleRow('shuffle_questions', 'Shuffle the questions', 'Each player gets the questions in a different, random order.'),
+          toggleRow('shuffle_answers', 'Shuffle the answer choices', 'The answers of every question are shown in a random order.')),
+        el('section', { class: 'cms-section' },
+          el('div', { class: 'cms-section-head' },
             el('div', { class: 'cms-section-title' },
               el('h3', { text: 'Questions' }),
-              el('span', { class: 'cms-hint', text: 'Asked in this order' })),
+              orderHint),
             el('div', { class: 'cms-section-actions' },
               el('button', { type: 'button', class: 'btn-secondary btn-small', text: 'Expand all', onclick: function () { setAllOpen(true); } }),
               el('button', { type: 'button', class: 'btn-secondary btn-small', text: 'Collapse all', onclick: function () { setAllOpen(false); } }))),
+          el('div', { class: 'cms-bulk' },
+            el('div', { class: 'cms-bulk-text' },
+              el('strong', { text: 'Add many questions at once' }),
+              el('span', { class: 'field-hint', text: 'Download the template, fill in one question per row, then upload it. The questions are added after the ones below.' })),
+            el('div', { class: 'cms-section-actions' }, templateLink, uploadBtn, fileInput)),
+          importBox,
           questionsBox,
           el('button', {
             type: 'button', class: 'btn-secondary cms-add-row',

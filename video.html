@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="page.video.title">Watch — The Monkey Business</title>
+  <meta name="description" data-i18n-content="page.video.desc" content="Watch a video from your playlist.">
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="assets/js/i18n-strings.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="assets/js/theme.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+  <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/video.js" defer></script>
+</head>
+<body class="video-body">
+
+<div class="video-page">
+  <!-- Top bar: the [x] back to Home, then the video's name. -->
+  <header class="video-bar">
+    <a class="video-close" href="index.html" aria-label="Back to Home" data-i18n-aria-label="video.back" title="Back to Home" data-i18n-title="video.back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </a>
+    <h1 class="video-title" id="videoTitle"></h1>
+  </header>
+
+  <!-- assets/js/video.js puts the YouTube player in here. -->
+  <main class="video-stage">
+    <div class="video-frame" id="videoFrame">
+      <p class="video-note" id="videoNote" role="status" data-i18n="video.loading">Loading the video…</p>
+    </div>
+  </main>
+
+  <!-- Bottom bar: "Next" is centred under the player (what it does comes later). -->
+  <footer class="video-foot">
+    <button type="button" class="video-next" id="videoNext" data-i18n="video.next">Next</button>
+  </footer>
+</div>
+
+<script>window.I18N && I18N.apply();</script>
+</body>
+</html>

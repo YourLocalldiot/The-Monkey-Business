@@ -60,6 +60,12 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    // A new account starts in Vietnamese: the handle_new_user() trigger sets
+    // profiles.language = 'vi' (docs/supabase-sql.md), and this makes the
+    // device agree straight away, before there is a session to read it from.
+    // Anyone can switch to English on the Profile page.
+    I18N.store('vi');
+
     // Always go to Home on a successful signup. Note: if "Confirm email"
     // is on in Supabase Auth settings, signUp() doesn't grant a session
     // yet, so this lands on Home in the logged-out state until they
