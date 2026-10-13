@@ -40,8 +40,8 @@ assets/js/moderator.js           CMS shell: access gate, tabs, and the helpers t
 assets/js/moderator-playlists.js CMS > Playlists: details + the ordered videos/quizzes inside, saved through save_playlist()
 assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions, answers, correct answers, time limits; saved through save_quiz()
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
-assets/js/quiz-import.js        Reads the quiz spreadsheet template (.xlsx/.csv) and validates it for the CMS Quizzes tab
-assets/templates/               TheMonkeyBusinessQuizTemplate.xlsx, the downloadable template for bulk-adding quiz questions
+assets/js/quiz-import.js        Reads the quiz template CSV and validates it for the CMS Quizzes tab
+assets/templates/               TheMonkeyBusinessQuizTemplate.csv, the downloadable template for bulk-adding quiz questions
 assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)
 assets/js/video.js              Loads the video for video.html and embeds it
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak

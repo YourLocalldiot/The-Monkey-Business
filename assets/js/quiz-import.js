@@ -1,16 +1,12 @@
-// Reads a quiz-question file (.xlsx or .csv) in the format of
-// assets/templates/TheMonkeyBusinessQuizTemplate.xlsx and turns it into
+// Reads a quiz-question CSV file in the format of
+// assets/templates/TheMonkeyBusinessQuizTemplate.csv and turns it into
 // question objects for the CMS quiz editor (moderator-quizzes.js).
 //
 //   QuizImport.parseFile(file) -> Promise<{ questions: [...], problems: [...] }>
 //
 // Nothing is returned for a file with any problem: `problems` lists every
-// one (each { row, message }; row is the spreadsheet row, or 0 for the file
+// one (each { row, message }; row is the line in the file, or 0 for the file
 // as a whole) and `questions` is empty. A file is accepted whole or not at all.
-//
-// The xlsx reader is deliberately small: an .xlsx is a zip of XML files, and
-// only the first worksheet and the shared-strings table are needed. It uses
-// the browser's own DecompressionStream, so there is no library to load.
 (function () {
   var MAX_QUESTIONS = 500;
   var MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -26,128 +22,9 @@
     return { row: row, message: message };
   }
 
-  // ---------- reading a file into rows of text ----------
+  // ---------- reading the file into rows of text ----------
 
-  // A row is { number: <row in the spreadsheet>, cells: [text, ...] }.
-
-  function columnIndex(ref) {
-    var letters = /^[A-Z]+/i.exec(ref || '');
-    if (!letters) return -1;
-    var index = 0;
-    letters[0].toUpperCase().split('').forEach(function (ch) { index = index * 26 + (ch.charCodeAt(0) - 64); });
-    return index - 1;
-  }
-
-  function u16(view, at) { return view.getUint16(at, true); }
-  function u32(view, at) { return view.getUint32(at, true); }
-
-  async function inflate(bytes) {
-    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
-  }
-
-  // Returns { 'xl/workbook.xml': Uint8Array, ... } for the wanted names.
-  async function unzip(buffer, wanted) {
-    var view = new DataView(buffer);
-    var bytes = new Uint8Array(buffer);
-    var end = -1;
-    for (var i = buffer.byteLength - 22; i >= Math.max(0, buffer.byteLength - 22 - 65535); i--) {
-      if (u32(view, i) === 0x06054b50) { end = i; break; }
-    }
-    if (end < 0) throw new Error('not a zip');
-
-    var count = u16(view, end + 10);
-    var at = u32(view, end + 16);
-    var decoder = new TextDecoder();
-    var found = {};
-    for (var k = 0; k < count; k++) {
-      if (at + 46 > buffer.byteLength || u32(view, at) !== 0x02014b50) throw new Error('bad zip directory');
-      var method = u16(view, at + 10);
-      var size = u32(view, at + 20);
-      var nameLength = u16(view, at + 28);
-      var extraLength = u16(view, at + 30);
-      var commentLength = u16(view, at + 32);
-      var local = u32(view, at + 42);
-      var name = decoder.decode(bytes.subarray(at + 46, at + 46 + nameLength));
-      at += 46 + nameLength + extraLength + commentLength;
-
-      if (wanted.indexOf(name) === -1) continue;
-      if (u32(view, local) !== 0x04034b50) throw new Error('bad zip entry');
-      var start = local + 30 + u16(view, local + 26) + u16(view, local + 28);
-      var data = bytes.subarray(start, start + size);
-      if (method === 0) found[name] = data;
-      else if (method === 8) found[name] = await inflate(data);
-      else throw new Error('unsupported zip compression');
-    }
-    return found;
-  }
-
-  function parseXml(bytes) {
-    var doc = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length) throw new Error('bad xml');
-    return doc;
-  }
-
-  // Direct children of `node` with this local name.
-  function children(node, name) {
-    return Array.prototype.filter.call(node.childNodes, function (c) { return c.localName === name; });
-  }
-
-  function textOf(node) {   // all <t> runs inside, in order (rich text has several)
-    return Array.prototype.map.call(node.getElementsByTagName('t'), function (t) { return t.textContent; }).join('');
-  }
-
-  async function readXlsx(buffer) {
-    var base = await unzip(buffer, ['xl/workbook.xml', 'xl/_rels/workbook.xml.rels', 'xl/sharedStrings.xml']);
-    if (!base['xl/workbook.xml']) throw new Error('no workbook');
-
-    // The first sheet in the workbook, and where its XML lives.
-    var workbook = parseXml(base['xl/workbook.xml']);
-    var sheet = workbook.getElementsByTagName('sheet')[0];
-    if (!sheet) throw new Error('no sheet');
-    var target = 'worksheets/sheet1.xml';
-    var relId = sheet.getAttribute('r:id') || sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
-    if (base['xl/_rels/workbook.xml.rels'] && relId) {
-      var rels = parseXml(base['xl/_rels/workbook.xml.rels']).getElementsByTagName('Relationship');
-      for (var r = 0; r < rels.length; r++) {
-        if (rels[r].getAttribute('Id') === relId) target = rels[r].getAttribute('Target');
-      }
-    }
-    var sheetPath = target.charAt(0) === '/' ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
-    var sheetFiles = await unzip(buffer, [sheetPath]);
-    if (!sheetFiles[sheetPath]) throw new Error('no sheet data');
-
-    var shared = [];
-    if (base['xl/sharedStrings.xml']) {
-      shared = children(parseXml(base['xl/sharedStrings.xml']).documentElement, 'si').map(textOf);
-    }
-
-    var rows = [];
-    var sheetDoc = parseXml(sheetFiles[sheetPath]);
-    var rowNodes = sheetDoc.getElementsByTagName('row');
-    for (var i = 0; i < rowNodes.length; i++) {
-      var rowNode = rowNodes[i];
-      var number = Number(rowNode.getAttribute('r')) || (rows.length ? rows[rows.length - 1].number + 1 : 1);
-      var cells = [];
-      var cellNodes = children(rowNode, 'c');
-      for (var c = 0; c < cellNodes.length; c++) {
-        var cell = cellNodes[c];
-        var column = columnIndex(cell.getAttribute('r'));
-        if (column < 0) column = cells.length;
-        var type = cell.getAttribute('t');
-        var valueNode = children(cell, 'v')[0];
-        var text = '';
-        if (type === 'inlineStr') text = textOf(cell);
-        else if (!valueNode) text = '';
-        else if (type === 's') text = shared[Number(valueNode.textContent)] || '';
-        else if (type === 'b') text = valueNode.textContent === '1' ? 'TRUE' : 'FALSE';
-        else text = valueNode.textContent;
-        cells[column] = text;
-      }
-      rows.push({ number: number, cells: cells });
-    }
-    return rows;
-  }
+  // A row is { number: <record in the file>, cells: [text, ...] }.
 
   // Comma, semicolon or tab separated, depending on what the header uses
   // (Excel in some regions saves CSV with semicolons).
@@ -318,11 +195,9 @@
   }
 
   async function parseFile(file) {
-    var name = String(file && file.name || '').toLowerCase();
-    var isXlsx = /\.xlsx$/.test(name);
-    var isCsv = /\.(csv|txt)$/.test(name);
-    if (!isXlsx && !isCsv) {
-      return { questions: [], problems: [problem(0, 'Upload the .xlsx template (or a .csv saved from it). "' + (file && file.name || 'This file') + '" is a different type of file.')] };
+    var name = String(file && file.name || '');
+    if (!/\.csv$/i.test(name)) {
+      return { questions: [], problems: [problem(0, 'Upload the .csv template. "' + (name || 'This file') + '" is a different type of file. In Excel, use File → Save As → CSV UTF-8.')] };
     }
     if (file.size > MAX_FILE_BYTES) {
       return { questions: [], problems: [problem(0, 'The file is larger than 5 MB.')] };
@@ -333,22 +208,15 @@
 
     var rows;
     try {
-      if (isXlsx) {
-        if (typeof DecompressionStream === 'undefined') {
-          return { questions: [], problems: [problem(0, 'This browser cannot open .xlsx files. Save the sheet as .csv (File → Save As → CSV) and upload that, or use an up-to-date Chrome, Edge, Safari or Firefox.')] };
-        }
-        rows = await readXlsx(await file.arrayBuffer());
-      } else {
-        rows = readCsv(await file.text());
-      }
+      rows = readCsv(await file.text());
     } catch (error) {
-      return { questions: [], problems: [problem(0, 'Could not read this file. Make sure it is the unmodified template saved as .xlsx (or a plain .csv), not a different or damaged file.')] };
+      return { questions: [], problems: [problem(0, 'Could not read this file. Make sure it is the template saved as a plain .csv.')] };
     }
     return buildQuestions(rows);
   }
 
   window.QuizImport = {
-    TEMPLATE_URL: 'assets/templates/TheMonkeyBusinessQuizTemplate.xlsx',
+    TEMPLATE_URL: 'assets/templates/TheMonkeyBusinessQuizTemplate.csv',
     parseFile: parseFile,
     // exposed for testing
     _buildQuestions: buildQuestions,

@@ -167,8 +167,8 @@ html.i18n-pending body { visibility: hidden; }
 
 /* ---------- Sidebar ---------- */
 .sidebar {
-  width: 258px;
-  flex: 0 0 258px;
+  width: 288px;
+  flex: 0 0 288px;
   background: linear-gradient(185deg, var(--sidebar-bg-2), var(--sidebar-bg));
   color: var(--sidebar-ink);
   padding: 28px 20px 24px;
@@ -229,19 +229,21 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 
 /* ---------- Sidebar: expand / collapse ----------
    assets/js/sidebar.js adds the button and sets html[data-sidebar="collapsed"]
-   (remembered per device). On a laptop the collapsed sidebar shrinks to an
-   icon rail; on a phone the bottom tab bar slides away and leaves just the
-   handle to bring it back. */
+   (remembered per device). On a laptop the [<] button sits on the logo's row,
+   inside the sidebar; collapsed, the sidebar shrinks to an icon rail and the
+   [>] button takes the logo's place. On a phone the bottom tab bar slides
+   away and leaves just a handle to bring it back. */
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sidebar-head .brand { min-width: 0; padding: 0; }
 .sidebar-toggle {
-  position: absolute; top: 34px; right: -14px; z-index: 41;
-  width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  width: 32px; height: 32px; flex: none; padding: 0; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--surface); color: var(--ink-70);
-  border: 1.5px solid var(--ink-20); box-shadow: var(--shadow-sm);
+  background: rgba(248,236,217,.1); color: var(--sidebar-ink);
+  border: 1.5px solid rgba(248,236,217,.22);
   transition: background .15s ease, color .15s ease;
 }
-.sidebar-toggle:hover { background: var(--cream-soft); color: var(--ink); }
-.sidebar-toggle:focus-visible { outline-offset: 3px; border-radius: 50%; }
+.sidebar-toggle:hover { background: rgba(248,236,217,.2); }
+.sidebar-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 8px; }
 .sidebar-toggle svg { transition: transform .2s ease; }
 @media (prefers-reduced-motion: no-preference) {
   .sidebar { transition: width .2s ease, flex-basis .2s ease, padding .2s ease, transform .2s ease; }
@@ -249,8 +251,9 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 @media (min-width: 721px) {
   html[data-sidebar="collapsed"] .sidebar { width: 76px; flex-basis: 76px; padding-left: 12px; padding-right: 12px; }
   html[data-sidebar="collapsed"] .sidebar-toggle svg { transform: rotate(180deg); }
-  html[data-sidebar="collapsed"] .brand { justify-content: center; padding: 0; }
-  html[data-sidebar="collapsed"] .brand-name { display: none; }
+  /* The [>] button replaces the logo, centred in the rail. */
+  html[data-sidebar="collapsed"] .brand { display: none; }
+  html[data-sidebar="collapsed"] .sidebar-head { justify-content: center; }
   /* Icons only: font-size 0 hides the label but keeps it for screen readers. */
   html[data-sidebar="collapsed"] .nav-item { justify-content: center; gap: 0; padding: 10px 0; font-size: 0; }
   html[data-sidebar="collapsed"] .login-btn { gap: 0; padding: 10px 0; font-size: 0; }
@@ -869,6 +872,7 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
     z-index: 40;
   }
   .brand, .sidebar-spacer, .login-btn { display: none; }
+  .sidebar-head { display: contents; }
 
   /* Unwrap these two containers so Home/Tracker/Simulation (inside
      nav.primary-nav) and Profile (inside sidebar-account) become one
@@ -894,15 +898,17 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
      slides down and only the handle (and a sliver above the home
      indicator) stays on screen. */
   .sidebar-toggle {
-    top: auto; right: auto; left: 50%; bottom: 100%;
+    position: absolute; left: 50%; bottom: 100%; z-index: 41;
     width: 56px; height: 24px; border-radius: 14px 14px 0 0; border-bottom: none;
+    background: var(--surface); color: var(--ink-70); border-color: var(--ink-20);
     transform: translateX(-50%); box-shadow: 0 -4px 10px -6px rgba(77,50,43,.22);
   }
-  .sidebar-toggle:focus-visible { border-radius: 14px 14px 0 0; }
+  .sidebar-toggle:hover { background: var(--cream-soft); color: var(--ink); }
+  .sidebar-toggle:focus-visible { border-radius: 14px 14px 0 0; outline-color: var(--honey); }
   .sidebar-toggle svg { transform: rotate(-90deg); }
   html[data-sidebar="collapsed"] .sidebar { transform: translateY(calc(100% - env(safe-area-inset-bottom))); }
   html[data-sidebar="collapsed"] .sidebar-toggle svg { transform: rotate(90deg); }
-  html[data-sidebar="collapsed"] .sidebar > :not(.sidebar-toggle) { visibility: hidden; transition: visibility 0s .2s; }
+  html[data-sidebar="collapsed"] .sidebar > :not(.sidebar-head) { visibility: hidden; transition: visibility 0s .2s; }
   html[data-sidebar="collapsed"] .canvas { padding-bottom: calc(44px + env(safe-area-inset-bottom)); }
   html[data-sidebar="collapsed"] .cms-actions { bottom: calc(26px + env(safe-area-inset-bottom)); }
 }

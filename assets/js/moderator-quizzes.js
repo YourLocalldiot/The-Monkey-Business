@@ -434,7 +434,7 @@
       }
 
       var fileInput = el('input', {
-        type: 'file', accept: '.xlsx,.csv', hidden: true, tabindex: '-1', 'aria-hidden': 'true',
+        type: 'file', accept: '.csv,text/csv', hidden: true, tabindex: '-1', 'aria-hidden': 'true',
         onchange: onFileChosen
       });
       var uploadBtn = el('button', {
@@ -443,7 +443,7 @@
       }, P.icon('upload', 14), 'Upload questions');
       var templateLink = el('a', {
         class: 'btn-secondary btn-small', href: window.QuizImport.TEMPLATE_URL,
-        download: 'TheMonkeyBusinessQuizTemplate.xlsx'
+        download: 'TheMonkeyBusinessQuizTemplate.csv'
       }, P.icon('download', 14), 'Download template');
 
       // A question nobody has typed into yet (the empty one a new quiz starts with).
@@ -672,7 +672,7 @@
           el('div', { class: 'cms-bulk' },
             el('div', { class: 'cms-bulk-text' },
               el('strong', { text: 'Add many questions at once' }),
-              el('span', { class: 'field-hint', text: 'Download the template, fill in one question per row, then upload it. The questions are added after the ones below.' })),
+              el('span', { class: 'field-hint', text: 'Download the CSV template, fill in one question per row, then upload it. The questions are added after the ones below.' })),
             el('div', { class: 'cms-section-actions' }, templateLink, uploadBtn, fileInput)),
           importBox,
           questionsBox,

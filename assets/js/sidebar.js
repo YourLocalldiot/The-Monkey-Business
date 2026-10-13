@@ -1,7 +1,8 @@
 // Expand / collapse button for the navigation sidebar (the bottom tab bar on
-// a phone). Loaded, not deferred, in the <head> of every page that has a
-// sidebar, so the remembered state is on <html> before anything is drawn and
-// the sidebar never visibly jumps. The CSS for both states is in
+// a phone). It sits next to the logo, which it replaces while collapsed.
+// Loaded, not deferred, in the <head> of every page that has a sidebar, so
+// the remembered state is on <html> before anything is drawn and the
+// sidebar never visibly jumps. The CSS for both states is in
 // css/styles.css ("Sidebar: expand / collapse").
 (function () {
   var KEY = 'sidebar';
@@ -58,6 +59,19 @@
     });
 
     refresh();
-    sidebar.appendChild(button);
+
+    // The button shares a row with the logo (expanded) or replaces it
+    // (collapsed), so both go in one header. The logo is a link, so the
+    // button can't live inside it.
+    var brand = sidebar.querySelector('.brand');
+    var head = document.createElement('div');
+    head.className = 'sidebar-head';
+    if (brand) {
+      brand.parentNode.insertBefore(head, brand);
+      head.appendChild(brand);
+    } else {
+      sidebar.insertBefore(head, sidebar.firstChild);
+    }
+    head.appendChild(button);
   });
 })();
