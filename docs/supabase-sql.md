@@ -1275,6 +1275,486 @@ grant  execute on function public.save_quiz(bigint, text, text, jsonb, text, tex
 
 Until it has been run: everything still works. The two shuffle switches in the CMS are disabled (and a quiz saves without them), and new accounts get their language from the browser, as before, rather than Vietnamese.
 
+## Quiz player: pictures, playing, leaderboard
+
+**Run this after the `quizzes: shuffle + default language` query above.** It adds what `quiz.html` (the page Home opens for a quiz) and the CMS picture field need:
+
+1. **A picture for each question.** `quiz_questions.image_url` (a link, not an upload). `save_quiz` is replaced so it saves it (same arguments as before, so nothing else changes).
+2. **The quiz player.** Questions and answers can't be read by learners (the correct answers would leak), so playing goes through functions that never reveal `is_correct` until a question has been answered: `get_quiz_intro`, `start_quiz`, `answer_question` (grades the answer and works out the points), `finish_quiz` and `get_quiz_leaderboard`.
+3. **Points.** `round(1000 × (1 − (response time ÷ question timer) × ½))` for a correct answer, 0 for a wrong one or a timeout, so 1000 for an instant answer down to 500 at the last second. A question with no time limit is played with a 30-second timer. The response time is measured in the browser and clamped to the question timer.
+4. **The leaderboard.** `quiz_players` has one row per player per quiz. The leaderboard shows only **usernames and places**, never scores. Working out places needs each player's best score though, so that is kept in this table, out of reach: nobody can read or change the table through the API, and the functions only ever return places. (To not keep any number at all, places would have to be fixed forever at the moment a player finishes, and could never change when others play later.)
+
+**Save as:** `quizzes: pictures + player + leaderboard`
+
+Safe to re-run. **Don't re-run the older `save_quiz` queries after this one** (they would bring back a `save_quiz` that doesn't know about pictures).
+
+```sql
+-- =====================================================================
+-- Quiz pictures, the quiz player and the leaderboard
+-- Run after the shuffle query (it needs quizzes.shuffle_* and the *_vn columns).
+-- =====================================================================
+
+-- 1. A picture link per question (null = no picture).
+alter table public.quiz_questions add column if not exists image_url text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'quiz_questions_image_url_check') then
+    alter table public.quiz_questions
+      add constraint quiz_questions_image_url_check
+      check (image_url is null or (length(image_url) <= 2000 and image_url ~* '^https?://[^[:space:]]+$'));
+  end if;
+end $$;
+
+-- 2. save_quiz also saves each question's picture. Same signature as the
+--    shuffle version, so this simply replaces it (its permissions stay).
+create or replace function public.save_quiz(
+  p_quiz_id         bigint,   -- null creates a new quiz
+  p_display_name    text,
+  p_description     text,
+  p_questions       jsonb,    -- [{"id": 4, "prompt": "...", "prompt_vn": "...", "time_limit_seconds": 30,
+                              --   "options": [{"id": 9, "text": "...", "text_vn": "...", "is_correct": true}, ...]}, ...]
+  p_display_name_vn text default null,
+  p_description_vn  text default null,
+  p_shuffle_questions boolean default null,   -- null = leave as it is (false for a new quiz)
+  p_shuffle_answers   boolean default null
+) returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_quiz_id   bigint := p_quiz_id;
+  v_q         jsonb;
+  v_o         jsonb;
+  v_q_pos     integer := 0;
+  v_o_pos     integer;
+  v_q_id      bigint;
+  v_o_id      bigint;
+  v_keep_q    bigint[] := '{}';
+  v_keep_o    bigint[];
+  v_prompt    text;
+  v_prompt_vn text;
+  v_text      text;
+  v_text_vn   text;
+  v_time      integer;
+  v_image     text;
+  v_options   integer;
+  v_correct   integer;
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can edit quizzes.' using errcode = '42501';
+  end if;
+  if btrim(coalesce(p_display_name, '')) = '' then
+    raise exception 'The quiz needs a name.';
+  end if;
+  if jsonb_typeof(coalesce(p_questions, '[]'::jsonb)) <> 'array' then
+    raise exception 'The quiz questions must be a list.';
+  end if;
+
+  if v_quiz_id is null then
+    insert into public.quizzes (display_name, display_name_vn, description, description_vn, shuffle_questions, shuffle_answers)
+    values (
+      btrim(p_display_name),
+      nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+      nullif(btrim(coalesce(p_description, '')), ''),
+      nullif(btrim(coalesce(p_description_vn, '')), ''),
+      coalesce(p_shuffle_questions, false),
+      coalesce(p_shuffle_answers, false)
+    )
+    returning id into v_quiz_id;
+  else
+    update public.quizzes
+       set display_name    = btrim(p_display_name),
+           display_name_vn = nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+           description     = nullif(btrim(coalesce(p_description, '')), ''),
+           description_vn  = nullif(btrim(coalesce(p_description_vn, '')), ''),
+           shuffle_questions = coalesce(p_shuffle_questions, shuffle_questions),
+           shuffle_answers   = coalesce(p_shuffle_answers, shuffle_answers)
+     where id = v_quiz_id;
+    if not found then
+      raise exception 'This quiz no longer exists. Reload the page and try again.';
+    end if;
+  end if;
+
+  for v_q in
+    select e.item from jsonb_array_elements(coalesce(p_questions, '[]'::jsonb)) as e(item)
+  loop
+    v_q_pos     := v_q_pos + 1;
+    v_prompt    := btrim(coalesce(v_q ->> 'prompt', ''));
+    v_prompt_vn := nullif(btrim(coalesce(v_q ->> 'prompt_vn', '')), '');
+    v_time      := nullif(v_q ->> 'time_limit_seconds', '')::integer;
+    v_image     := nullif(btrim(coalesce(v_q ->> 'image_url', '')), '');
+
+    if v_image is not null and (length(v_image) > 2000 or v_image !~* '^https?://[^[:space:]]+$') then
+      raise exception 'The picture link of question % must start with http:// or https:// and have no spaces.', v_q_pos;
+    end if;
+
+    if v_prompt = '' then
+      raise exception 'Question % needs some text.', v_q_pos;
+    end if;
+    if jsonb_typeof(coalesce(v_q -> 'options', '[]'::jsonb)) <> 'array' then
+      raise exception 'The answers of question % must be a list.', v_q_pos;
+    end if;
+
+    select count(*),
+           count(*) filter (where coalesce((o.opt ->> 'is_correct')::boolean, false))
+      into v_options, v_correct
+      from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as o(opt);
+    if v_options < 2 then
+      raise exception 'Question % needs at least two answers.', v_q_pos;
+    end if;
+    if v_correct < 1 then
+      raise exception 'Question % needs at least one correct answer.', v_q_pos;
+    end if;
+
+    v_q_id := nullif(v_q ->> 'id', '')::bigint;
+    if v_q_id is not null then
+      update public.quiz_questions
+         set position = v_q_pos, prompt = v_prompt, prompt_vn = v_prompt_vn, time_limit_seconds = v_time,
+             -- a caller that doesn't send image_url at all leaves the picture alone
+             image_url = case when v_q ? 'image_url' then v_image else image_url end
+       where id = v_q_id and quiz_id = v_quiz_id;
+      if not found then
+        raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+      end if;
+    else
+      insert into public.quiz_questions (quiz_id, position, prompt, prompt_vn, time_limit_seconds, image_url)
+      values (v_quiz_id, v_q_pos, v_prompt, v_prompt_vn, v_time, v_image)
+      returning id into v_q_id;
+    end if;
+    v_keep_q := v_keep_q || v_q_id;
+
+    v_o_pos  := 0;
+    v_keep_o := '{}';
+    for v_o in
+      select e.item from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as e(item)
+    loop
+      v_o_pos   := v_o_pos + 1;
+      v_text    := btrim(coalesce(v_o ->> 'text', ''));
+      v_text_vn := nullif(btrim(coalesce(v_o ->> 'text_vn', '')), '');
+      if v_text = '' then
+        raise exception 'Answer % of question % needs some text.', v_o_pos, v_q_pos;
+      end if;
+
+      v_o_id := nullif(v_o ->> 'id', '')::bigint;
+      if v_o_id is not null then
+        update public.quiz_options
+           set position       = v_o_pos,
+               option_text    = v_text,
+               option_text_vn = v_text_vn,
+               is_correct     = coalesce((v_o ->> 'is_correct')::boolean, false)
+         where id = v_o_id and question_id = v_q_id;
+        if not found then
+          raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+        end if;
+      else
+        insert into public.quiz_options (question_id, position, option_text, option_text_vn, is_correct)
+        values (v_q_id, v_o_pos, v_text, v_text_vn, coalesce((v_o ->> 'is_correct')::boolean, false))
+        returning id into v_o_id;
+      end if;
+      v_keep_o := v_keep_o || v_o_id;
+    end loop;
+
+    delete from public.quiz_options where question_id = v_q_id and id <> all (v_keep_o);
+  end loop;
+
+  delete from public.quiz_questions where quiz_id = v_quiz_id and id <> all (v_keep_q);
+
+  return v_quiz_id;
+end;
+$$;
+
+-- 3. Who has played which quiz. Nobody reads or writes this table directly
+--    (RLS on, no policies, no grants): the functions below do, and they only
+--    ever hand out places, never scores.
+create table if not exists public.quiz_players (
+  quiz_id bigint not null references public.quizzes (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- Best finished score; only used to work out places. null = never finished.
+  best_score integer,
+  -- The run in progress (reset by start_quiz, cleared by finish_quiz).
+  attempt_score integer not null default 0,
+  attempt_answered bigint[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (quiz_id, user_id)
+);
+create index if not exists quiz_players_quiz_id_best_score_idx
+  on public.quiz_players (quiz_id, best_score desc);
+
+alter table public.quiz_players enable row level security;
+revoke all on public.quiz_players from anon, authenticated;
+
+-- 4. Place of a score among the *other* finished players: 1 + how many beat
+--    it; total = other finished players + you. Internal helper (not callable
+--    through the API).
+create or replace function public.quiz_rank(p_quiz_id bigint, p_user uuid, p_score integer)
+returns table (place integer, total integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (1 + count(*) filter (where qp.best_score > p_score))::integer,
+         (count(*) + 1)::integer
+    from public.quiz_players qp
+   where qp.quiz_id = p_quiz_id
+     and qp.user_id <> p_user
+     and qp.best_score is not null;
+$$;
+revoke execute on function public.quiz_rank(bigint, uuid, integer) from public, anon, authenticated;
+
+-- 5. What the quiz page shows before the quiz starts.
+create or replace function public.get_quiz_intro(p_quiz_id bigint)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_quiz public.quizzes%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+  select * into v_quiz from public.quizzes where id = p_quiz_id;
+  -- same visibility as the quizzes table: in a playlist, or you are a moderator
+  if not found or not (public.is_moderator()
+        or exists (select 1 from public.playlist_items pi where pi.quiz_id = p_quiz_id)) then
+    raise exception 'This quiz was not found.' using errcode = 'P0002';
+  end if;
+  return jsonb_build_object(
+    'name', v_quiz.display_name,
+    'name_vn', v_quiz.display_name_vn,
+    'description', v_quiz.description,
+    'description_vn', v_quiz.description_vn,
+    'question_count', (select count(*) from public.quiz_questions qq where qq.quiz_id = p_quiz_id),
+    'player_count', (select count(*) from public.quiz_players qp where qp.quiz_id = p_quiz_id and qp.best_score is not null)
+  );
+end;
+$$;
+
+-- 6. Starts a run: resets the run in progress and returns the questions
+--    (answers without is_correct) plus the player's starting place.
+create or replace function public.start_quiz(p_quiz_id bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid       uuid := auth.uid();
+  v_quiz      public.quizzes%rowtype;
+  v_questions jsonb;
+  v_place     integer;
+  v_total     integer;
+begin
+  if v_uid is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+  select * into v_quiz from public.quizzes where id = p_quiz_id;
+  if not found or not (public.is_moderator()
+        or exists (select 1 from public.playlist_items pi where pi.quiz_id = p_quiz_id)) then
+    raise exception 'This quiz was not found.' using errcode = 'P0002';
+  end if;
+
+  select coalesce(jsonb_agg(
+           jsonb_build_object(
+             'id', qq.id,
+             'prompt', qq.prompt,
+             'prompt_vn', qq.prompt_vn,
+             'image_url', qq.image_url,
+             'time_limit_seconds', coalesce(qq.time_limit_seconds, 30),
+             'multiple', (select count(*) from public.quiz_options o where o.question_id = qq.id and o.is_correct) > 1,
+             'options', (select coalesce(jsonb_agg(
+                           jsonb_build_object('id', o.id, 'text', o.option_text, 'text_vn', o.option_text_vn)
+                           order by o.position, o.id), '[]'::jsonb)
+                         from public.quiz_options o where o.question_id = qq.id)
+           ) order by qq.position, qq.id), '[]'::jsonb)
+    into v_questions
+    from public.quiz_questions qq
+   where qq.quiz_id = p_quiz_id;
+
+  if jsonb_array_length(v_questions) = 0 then
+    raise exception 'This quiz has no questions yet.';
+  end if;
+
+  insert into public.quiz_players (quiz_id, user_id)
+  values (p_quiz_id, v_uid)
+  on conflict (quiz_id, user_id)
+  do update set attempt_score = 0, attempt_answered = '{}', updated_at = now();
+
+  select r.place, r.total into v_place, v_total from public.quiz_rank(p_quiz_id, v_uid, 0) r;
+
+  return jsonb_build_object(
+    'shuffle_questions', v_quiz.shuffle_questions,
+    'shuffle_answers', v_quiz.shuffle_answers,
+    'questions', v_questions,
+    'place', v_place,
+    'total', v_total
+  );
+end;
+$$;
+
+-- 7. Grades one answer. p_option_ids is what the player ticked (empty when
+--    time ran out), p_seconds how long they took.
+create or replace function public.answer_question(
+  p_quiz_id     bigint,
+  p_question_id bigint,
+  p_option_ids  bigint[],
+  p_seconds     numeric
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_limit   integer;
+  v_row     public.quiz_players%rowtype;
+  v_correct bigint[];
+  v_given   bigint[];
+  v_ok      boolean;
+  v_secs    numeric;
+  v_points  integer;
+  v_score   integer;
+  v_place   integer;
+  v_total   integer;
+begin
+  if v_uid is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+
+  select coalesce(qq.time_limit_seconds, 30) into v_limit
+    from public.quiz_questions qq
+   where qq.id = p_question_id and qq.quiz_id = p_quiz_id;
+  if not found then
+    raise exception 'This question was not found.' using errcode = 'P0002';
+  end if;
+
+  select * into v_row from public.quiz_players
+   where quiz_id = p_quiz_id and user_id = v_uid
+   for update;
+  if not found then
+    raise exception 'Start the quiz first.';
+  end if;
+  if p_question_id = any (v_row.attempt_answered) then
+    raise exception 'You already answered this question.';
+  end if;
+
+  select coalesce(array_agg(o.id order by o.id), '{}'::bigint[]) into v_correct
+    from public.quiz_options o
+   where o.question_id = p_question_id and o.is_correct;
+  select coalesce(array_agg(x.id order by x.id), '{}'::bigint[]) into v_given
+    from (select distinct u.id from unnest(coalesce(p_option_ids, '{}'::bigint[])) as u(id)) x;
+
+  v_ok     := cardinality(v_given) > 0 and v_given = v_correct;
+  v_secs   := least(greatest(coalesce(p_seconds, v_limit), 0), v_limit);
+  -- Points = round(1000 x (1 - response time / question timer x 1/2))
+  v_points := case when v_ok then round(1000 * (1 - (v_secs / v_limit) * 0.5))::integer else 0 end;
+
+  update public.quiz_players
+     set attempt_score    = attempt_score + v_points,
+         attempt_answered = attempt_answered || p_question_id,
+         updated_at       = now()
+   where quiz_id = p_quiz_id and user_id = v_uid
+  returning attempt_score into v_score;
+
+  select r.place, r.total into v_place, v_total from public.quiz_rank(p_quiz_id, v_uid, v_score) r;
+
+  return jsonb_build_object(
+    'correct', v_ok,
+    'points', v_points,
+    'correct_option_ids', to_jsonb(v_correct),
+    'score', v_score,
+    'place', v_place,
+    'total', v_total
+  );
+end;
+$$;
+
+-- 8. Ends the run: keeps the best score (only to rank by) and returns the
+--    score of this run and the player's place.
+create or replace function public.finish_quiz(p_quiz_id bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid   uuid := auth.uid();
+  v_row   public.quiz_players%rowtype;
+  v_count integer;
+  v_best  integer;
+  v_place integer;
+  v_total integer;
+begin
+  if v_uid is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+  select * into v_row from public.quiz_players
+   where quiz_id = p_quiz_id and user_id = v_uid
+   for update;
+  if not found then
+    raise exception 'Start the quiz first.';
+  end if;
+  select count(*) into v_count from public.quiz_questions qq where qq.quiz_id = p_quiz_id;
+  if cardinality(v_row.attempt_answered) < v_count then
+    raise exception 'Answer every question before finishing.';
+  end if;
+
+  v_best := greatest(coalesce(v_row.best_score, 0), v_row.attempt_score);
+  update public.quiz_players
+     set best_score = v_best, attempt_score = 0, attempt_answered = '{}', updated_at = now()
+   where quiz_id = p_quiz_id and user_id = v_uid;
+
+  select r.place, r.total into v_place, v_total from public.quiz_rank(p_quiz_id, v_uid, v_best) r;
+
+  return jsonb_build_object('score', v_row.attempt_score, 'place', v_place, 'total', v_total);
+end;
+$$;
+
+-- 9. The leaderboard: usernames and places only. The top 10 plus the caller's
+--    own row; total = everyone who has finished the quiz. Tied scores share a place.
+create or replace function public.get_quiz_leaderboard(p_quiz_id bigint)
+returns table (place integer, username text, is_me boolean, total integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with ranked as (
+    select qp.user_id,
+           (rank() over (order by qp.best_score desc))::integer as place,
+           (count(*) over ())::integer as total
+      from public.quiz_players qp
+     where qp.quiz_id = p_quiz_id and qp.best_score is not null
+  )
+  select r.place, p.username, (r.user_id = auth.uid()), r.total
+    from ranked r
+    join public.profiles p on p.id = r.user_id
+   where auth.uid() is not null
+     and (r.place <= 10 or r.user_id = auth.uid())
+   order by r.place, p.username;
+$$;
+
+-- Only signed-in users can call the player functions.
+revoke execute on function public.get_quiz_intro(bigint) from public, anon;
+revoke execute on function public.start_quiz(bigint) from public, anon;
+revoke execute on function public.answer_question(bigint, bigint, bigint[], numeric) from public, anon;
+revoke execute on function public.finish_quiz(bigint) from public, anon;
+revoke execute on function public.get_quiz_leaderboard(bigint) from public, anon;
+grant  execute on function public.get_quiz_intro(bigint) to authenticated;
+grant  execute on function public.start_quiz(bigint) to authenticated;
+grant  execute on function public.answer_question(bigint, bigint, bigint[], numeric) to authenticated;
+grant  execute on function public.finish_quiz(bigint) to authenticated;
+grant  execute on function public.get_quiz_leaderboard(bigint) to authenticated;
+```
+
+Until it has been run: the quiz page can't start a quiz (it says the quiz isn't available yet), and the CMS picture field is disabled.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

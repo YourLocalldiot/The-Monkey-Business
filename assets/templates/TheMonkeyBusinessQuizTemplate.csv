@@ -1,3 +1,3 @@
-﻿prompt,prompt_vn,time_limit_seconds,num_options,correct_position,option_1,option_1_vn,option_2,option_2_vn,option_3,option_3_vn,option_4,option_4_vn,option_5,option_5_vn,option_6,option_6_vn
-Capital of France,Thủ đô của Pháp,10,4,1,Paris,Paris,Bordeaux,Bordeaux,Nice,Nice,Versailles,Versailles,,,,
-Capital of Vietnam,Thủ đô của Việt Nam,10,3,2,Ho Chi Minh city,Thành phố Hồ Chí Minh,Hanoi,Hà Nội,Hai Phong,Hải Phòng,,,,,,
+﻿prompt,prompt_vn,image_url,time_limit_seconds,num_options,correct_position,option_1,option_1_vn,option_2,option_2_vn,option_3,option_3_vn,option_4,option_4_vn,option_5,option_5_vn,option_6,option_6_vn
+Capital of France,Thủ đô của Pháp,,10,4,1,Paris,Paris,Bordeaux,Bordeaux,Nice,Nice,Versailles,Versailles,,,,
+Capital of Vietnam,Thủ đô của Việt Nam,,10,3,2,Ho Chi Minh city,Thành phố Hồ Chí Minh,Hanoi,Hà Nội,Hai Phong,Hải Phòng,,,,,,

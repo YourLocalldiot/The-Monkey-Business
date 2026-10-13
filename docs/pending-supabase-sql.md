@@ -20,6 +20,12 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 - **Until it's run:** the CMS shuffle switches are disabled, and a quiz saves without them. New accounts still pick up Vietnamese on the device they signed up on (the sign-up page stores it), but the account itself has no language saved, so on another device the browser's language decides.
 - **Added:** 2026-10-13.
 
+### `quizzes: pictures + player + leaderboard`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz player: pictures, playing, leaderboard". Run it **after** `quizzes: shuffle + default language` (and don't re-run the older `save_quiz` queries afterwards).
+- **Why it's needed:** adds a picture link to each quiz question (CMS field + `image_url` CSV column), the functions the quiz page (`quiz.html`) plays through (`get_quiz_intro`, `start_quiz`, `answer_question`, `finish_quiz`) and the per-quiz leaderboard (`quiz_players` + `get_quiz_leaderboard`: usernames and places only; each player's best score is kept privately, only to work out places).
+- **Until it's run:** Home's quiz pieces open the quiz page, but it says the quiz isn't available yet and can't start; the CMS picture field is disabled and a question can't be given a picture.
+- **Added:** 2026-10-14.
+
 ## Applied
 
 As of the comparison above, every other snippet in `supabase-sql.md` appears to have been applied:

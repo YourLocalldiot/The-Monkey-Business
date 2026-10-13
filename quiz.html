@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="page.quiz.title">Quiz — The Monkey Business</title>
+  <meta name="description" data-i18n-content="page.quiz.desc" content="Play a quiz from your playlist and climb its leaderboard.">
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="assets/js/i18n-strings.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="assets/js/theme.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+  <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/quiz.js" defer></script>
+</head>
+<body class="video-body">
+
+<div class="video-page quiz-page" id="quizPage" data-state="loading">
+  <!-- Top bar: [x] back to Home; while playing, three boxes (rank, questions
+       done, points) and then the quiz's name. -->
+  <header class="video-bar">
+    <a class="video-close" id="quizClose" href="index.html" aria-label="Back to Home" data-i18n-aria-label="quiz.back" title="Back to Home" data-i18n-title="quiz.back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </a>
+    <div class="quiz-stats" id="quizStats" hidden>
+      <div class="quiz-stat">
+        <span class="quiz-stat-label" data-i18n="quiz.stat.rank">Rank</span>
+        <span class="quiz-stat-value tnum" id="statRank">–</span>
+      </div>
+      <div class="quiz-stat">
+        <span class="quiz-stat-label" data-i18n="quiz.stat.done">Done</span>
+        <span class="quiz-stat-value tnum" id="statDone">0</span>
+      </div>
+      <div class="quiz-stat">
+        <span class="quiz-stat-label" data-i18n="quiz.stat.points">Points</span>
+        <span class="quiz-stat-value tnum" id="statPoints">0</span>
+      </div>
+    </div>
+    <h1 class="video-title" id="quizTitle"></h1>
+  </header>
+
+  <main class="quiz-stage">
+    <p class="video-note quiz-note" id="quizNote" role="status" data-i18n="quiz.loading">Loading the quiz…</p>
+
+    <!-- Before the quiz: its name, description and leaderboard. -->
+    <section class="quiz-view" id="quizIntro" hidden>
+      <div class="card quiz-card">
+        <h2 class="quiz-name" id="introName"></h2>
+        <p class="quiz-desc" id="introDesc"></p>
+        <p class="quiz-meta" id="introMeta"></p>
+      </div>
+      <div class="card quiz-card">
+        <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
+        <ol class="quiz-board" id="introBoard"></ol>
+        <p class="quiz-board-empty" id="introBoardEmpty" data-i18n="quiz.leaderboard.empty" hidden>Nobody has finished this quiz yet. Be the first!</p>
+      </div>
+    </section>
+
+    <!-- One question at a time. -->
+    <section class="quiz-view" id="quizPlay" hidden>
+      <div class="quiz-timer" id="quizTimer" role="timer" aria-live="off">
+        <div class="quiz-timer-track"><div class="quiz-timer-fill" id="timerFill"></div></div>
+        <span class="quiz-timer-text tnum" id="timerText"></span>
+      </div>
+      <div class="card quiz-card">
+        <p class="quiz-q-count" id="qCount"></p>
+        <img class="quiz-q-image" id="qImage" alt="" hidden referrerpolicy="no-referrer">
+        <h2 class="quiz-q-prompt" id="qPrompt"></h2>
+        <p class="quiz-q-hint" id="qHint" data-i18n="quiz.selectAll" hidden>Select all that apply</p>
+        <div class="quiz-options" id="qOptions"></div>
+        <p class="quiz-feedback" id="qFeedback" role="status" hidden></p>
+      </div>
+    </section>
+
+    <!-- When it is over. -->
+    <section class="quiz-view" id="quizResult" hidden>
+      <div class="card quiz-card quiz-result">
+        <h2 class="quiz-name" data-i18n="quiz.result.title">Quiz complete!</h2>
+        <p class="quiz-result-score tnum" id="resultScore"></p>
+        <p class="quiz-result-place" id="resultPlace"></p>
+      </div>
+      <div class="card quiz-card">
+        <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
+        <ol class="quiz-board" id="resultBoard"></ol>
+        <p class="quiz-board-empty" id="resultBoardEmpty" data-i18n="quiz.leaderboard.empty" hidden>Nobody has finished this quiz yet. Be the first!</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom bar: its button depends on the stage. -->
+  <footer class="video-foot quiz-foot">
+    <button type="button" class="video-next" id="startBtn" data-i18n="quiz.start" hidden>Start quiz</button>
+    <button type="button" class="video-next" id="actionBtn" hidden></button>
+    <button type="button" class="video-next" id="againBtn" data-i18n="quiz.again" hidden>Play again</button>
+    <a class="video-next quiz-home" id="homeLink" href="index.html" data-i18n="quiz.back" hidden>Back to Home</a>
+  </footer>
+
+  <!-- 3, 2, 1 before the first question. -->
+  <div class="quiz-countdown" id="quizCountdown" hidden role="status" aria-live="assertive">
+    <p class="quiz-countdown-label" data-i18n="quiz.getReady">Get ready</p>
+    <p class="quiz-countdown-number tnum" id="countdownNumber"></p>
+  </div>
+</div>
+
+<script>window.I18N && I18N.apply();</script>
+</body>
+</html>

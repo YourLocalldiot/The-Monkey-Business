@@ -11,13 +11,24 @@
 
   var DETAIL_BASE =
     'id, display_name, display_name_vn, description, description_vn, ';
-  var DETAIL_QUESTIONS =
-    'quiz_questions(id, position, prompt, prompt_vn, time_limit_seconds, ' +
-    'quiz_options(id, position, option_text, option_text_vn, is_correct))';
   var SHUFFLE_COLUMNS = 'shuffle_questions, shuffle_answers, ';
 
-  function fetchQuiz(id) {
-    return window.sb.from('quizzes').select(DETAIL_BASE + SHUFFLE_COLUMNS + DETAIL_QUESTIONS).eq('id', id).single();
+  // Reads a quiz with or without the columns that later SQL added (shuffle
+  // switches; a picture link per question).
+  function fetchQuiz(id, withShuffle, withImage) {
+    var questions =
+      'quiz_questions(id, position, prompt, prompt_vn, ' + (withImage ? 'image_url, ' : '') + 'time_limit_seconds, ' +
+      'quiz_options(id, position, option_text, option_text_vn, is_correct))';
+    return window.sb.from('quizzes')
+      .select(DETAIL_BASE + (withShuffle ? SHUFFLE_COLUMNS : '') + questions)
+      .eq('id', id)
+      .single();
+  }
+
+  // A picture link has to be a plain http(s) address (the database checks the same).
+  var IMAGE_LINK = /^https?:\/\/\S+$/i;
+  function badImageLink(link) {
+    return link !== '' && (link.length > 2000 || !IMAGE_LINK.test(link));
   }
 
   // Makes a textarea as tall as its text, so long questions and answers wrap
@@ -46,6 +57,7 @@
       id: null,
       prompt: '',
       prompt_vn: '',
+      image_url: '',
       time_limit_seconds: null,
       open: true,   // editor-only: whether the card is expanded
       options: [blankOption(), blankOption(), blankOption(), blankOption()]
@@ -58,6 +70,7 @@
       display_name: '', display_name_vn: '', description: '', description_vn: '',
       shuffle_questions: false, shuffle_answers: false,
       shuffle_supported: true,   // unknown until the first save for a new quiz
+      image_supported: true,
       questions: [blankQuestion()]
     };
   }
@@ -135,14 +148,18 @@
       showPlaceholder('Loading…');
       var token = editorToken;
 
-      var result = await fetchQuiz(id);
-      var shuffleSupported = true;
-      // The shuffle columns come from the quiz-shuffle SQL (docs/pending-supabase-sql.md).
+      // The shuffle and picture columns come from SQL in docs/pending-supabase-sql.md.
       // Until it has been run, load the quiz without them rather than not at all.
-      if (result.error && result.error.code === '42703') {
-        shuffleSupported = false;
-        result = await window.sb.from('quizzes').select(DETAIL_BASE + DETAIL_QUESTIONS).eq('id', id).single();
+      var result;
+      var support = [true, true];   // [shuffle, picture]
+      var tiers = [[true, true], [true, false], [false, false]];
+      for (var t = 0; t < tiers.length; t++) {
+        support = tiers[t];
+        result = await fetchQuiz(id, support[0], support[1]);
+        if (!result.error || result.error.code !== '42703') break;
       }
+      var shuffleSupported = support[0];
+      var imageSupported = support[1];
       if (token !== editorToken) return;
 
       if (result.error) {
@@ -161,11 +178,13 @@
         shuffle_questions: !!row.shuffle_questions,
         shuffle_answers: !!row.shuffle_answers,
         shuffle_supported: shuffleSupported,
+        image_supported: imageSupported,
         questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q, i) {
           return {
             id: q.id,
             prompt: q.prompt,
             prompt_vn: q.prompt_vn || '',
+            image_url: q.image_url || '',
             time_limit_seconds: q.time_limit_seconds,
             open: !!openIndexes && openIndexes.indexOf(i) !== -1,
             options: (q.quiz_options || []).slice().sort(byPosition).map(function (o) {
@@ -255,7 +274,7 @@
 
       function removeQuestion(index) {
         var q = state.questions[index];
-        var hasContent = q.prompt.trim() || q.options.some(isFilled);
+        var hasContent = q.prompt.trim() || q.image_url.trim() || q.options.some(isFilled);
         if (hasContent && !window.confirm('Delete question ' + (index + 1) + '?')) return;
         state.questions.splice(index, 1);
         renderQuestions();
@@ -323,6 +342,34 @@
           }
         });
 
+        // Picture: a link, with a small preview so a wrong link is obvious.
+        var imageInput = el('input', {
+          type: 'url', maxlength: 2000, value: q.image_url, disabled: !state.image_supported,
+          placeholder: 'https://example.com/picture.jpg', autocomplete: 'off',
+          oninput: function () { q.image_url = imageInput.value; showImage(); changed(); }
+        });
+        var imagePreview = el('img', { class: 'cms-q-image', alt: '', referrerpolicy: 'no-referrer', hidden: true });
+        var imageNote = el('span', { class: 'field-hint is-error', hidden: true });
+        var showImage = P.debounce(function () {
+          var link = q.image_url.trim();
+          imageNote.hidden = true;
+          imagePreview.hidden = true;
+          if (!link) return;
+          if (badImageLink(link)) {
+            imageNote.textContent = 'The link must start with http:// or https:// and have no spaces.';
+            imageNote.hidden = false;
+            return;
+          }
+          imagePreview.src = link;
+        }, 350);
+        imagePreview.addEventListener('load', function () { imagePreview.hidden = false; imageNote.hidden = true; });
+        imagePreview.addEventListener('error', function () {
+          imagePreview.hidden = true;
+          imageNote.textContent = "A picture couldn't be loaded from this link.";
+          imageNote.hidden = false;
+        });
+        if (q.image_url.trim()) showImage();
+
         var optionsBox = el('div', { class: 'cms-options-list' });
         function renderOptions(focusIndex) {
           P.clear(optionsBox);
@@ -385,7 +432,11 @@
 
         body.appendChild(P.field('Question (English)', prompt));
         body.appendChild(P.field('Question (Vietnamese)', promptVn));
-        body.appendChild(P.field('Time limit (seconds)', time, 'Leave empty for no time limit.', 'cms-q-time'));
+        body.appendChild(P.field('Picture link (optional)', imageInput,
+          state.image_supported ? 'A link to an image (https://…). Shown above the question when the quiz is played.' : 'Needs a database update (docs/pending-supabase-sql.md).'));
+        body.appendChild(imageNote);
+        body.appendChild(imagePreview);
+        body.appendChild(P.field('Time limit (seconds)', time, 'Leave empty for the default of 30 seconds.', 'cms-q-time'));
         body.appendChild(el('div', { class: 'cms-options' },
           el('div', { class: 'cms-options-head' },
             el('span', { class: 'cms-options-label', text: 'Answers (tick every correct one)' }),
@@ -448,7 +499,7 @@
 
       // A question nobody has typed into yet (the empty one a new quiz starts with).
       function isUntouched(q) {
-        return q.id === null && !q.prompt.trim() && !q.prompt_vn.trim() &&
+        return q.id === null && !q.prompt.trim() && !q.prompt_vn.trim() && !q.image_url.trim() &&
           !q.options.some(function (o) { return isFilled(o) || o.option_text_vn.trim() !== ''; });
       }
 
@@ -529,6 +580,14 @@
           if (!q.prompt.trim()) {
             return { message: 'Question ' + n + ' needs some text.', index: i };
           }
+          if (q.image_url.trim() !== '') {
+            if (!state.image_supported) {
+              return { message: 'Question ' + n + ' has a picture, but pictures need a database update (docs/pending-supabase-sql.md). Run it, or clear the picture link.', index: i };
+            }
+            if (badImageLink(q.image_url.trim())) {
+              return { message: 'Question ' + n + ': the picture link must start with http:// or https:// and have no spaces.', index: i };
+            }
+          }
           if (q.time_limit_seconds !== null &&
               !(Number.isInteger(q.time_limit_seconds) && q.time_limit_seconds >= 1 && q.time_limit_seconds <= 3600)) {
             return { message: 'Question ' + n + ': the time limit must be a whole number of seconds from 1 to 3600, or empty.', index: i };
@@ -587,6 +646,7 @@
               id: q.id,
               prompt: q.prompt.trim(),
               prompt_vn: q.prompt_vn.trim(),
+              image_url: q.image_url.trim(),
               time_limit_seconds: q.time_limit_seconds,
               options: q.options.filter(isFilled).map(function (o) {
                 return { id: o.id, text: o.option_text.trim(), text_vn: o.option_text_vn.trim(), is_correct: !!o.is_correct };

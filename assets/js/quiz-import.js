@@ -13,9 +13,10 @@
   var MAX_OPTIONS = 6;
   var PROMPT_MAX = 1000;
   var OPTION_MAX = 500;
+  var IMAGE_MAX = 2000;
 
   var REQUIRED = ['prompt', 'num_options', 'correct_position', 'option_1', 'option_2'];
-  var KNOWN = ['prompt', 'prompt_vn', 'time_limit_seconds', 'num_options', 'correct_position'];
+  var KNOWN = ['prompt', 'prompt_vn', 'image_url', 'time_limit_seconds', 'num_options', 'correct_position'];
   for (var n = 1; n <= MAX_OPTIONS; n++) KNOWN.push('option_' + n, 'option_' + n + '_vn');
 
   function problem(row, message) {
@@ -130,6 +131,12 @@
       else if (prompt.length > PROMPT_MAX) problems.push(problem(at, 'The question text is longer than ' + PROMPT_MAX + ' characters.'));
       if (promptVn.length > PROMPT_MAX) problems.push(problem(at, 'The Vietnamese question text (prompt_vn) is longer than ' + PROMPT_MAX + ' characters.'));
 
+      // Optional picture shown with the question: a plain http(s) link.
+      var image = get(row, 'image_url');
+      if (image && (image.length > IMAGE_MAX || !/^https?:\/\/\S+$/i.test(image))) {
+        problems.push(problem(at, 'image_url must be a link starting with http:// or https:// (with no spaces), or empty for no picture (found "' + (image.length > 60 ? image.slice(0, 60) + '…' : image) + '").'));
+      }
+
       var timeRaw = get(row, 'time_limit_seconds');
       var time = null;
       if (timeRaw !== '') {
@@ -184,6 +191,7 @@
           id: null,
           prompt: prompt,
           prompt_vn: promptVn,
+          image_url: image,
           time_limit_seconds: time,
           open: false,
           options: options
