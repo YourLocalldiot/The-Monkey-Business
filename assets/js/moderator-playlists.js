@@ -279,7 +279,10 @@
 
       async function onDelete() {
         var label = state.display_name_en.trim() || 'this playlist';
-        if (!window.confirm('Delete "' + label + '"? Its list of contents goes with it; the videos and quizzes themselves are kept.')) return;
+        var yes = await window.UI.confirm('Delete "' + label + '"? Its list of contents goes with it; the videos and quizzes themselves are kept.', {
+          title: 'Delete playlist', confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true
+        });
+        if (!yes) return;
         P.status(statusEl, 'Deleting…');
         var result = await P.withBusy([saveBtn, deleteBtn], function () {
           return window.sb.from('playlists').delete().eq('playlist_id', state.playlist_id).select('playlist_id');

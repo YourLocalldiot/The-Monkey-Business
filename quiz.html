@@ -19,34 +19,36 @@
     })();
   </script>
   <script src="assets/js/theme.js" defer></script>
+  <script src="assets/js/ui.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/effects.js" defer></script>
   <script src="assets/js/quiz.js" defer></script>
 </head>
 <body class="video-body">
 
 <div class="video-page quiz-page" id="quizPage" data-state="loading">
-  <!-- Top bar: [x] back to Home; while playing, three boxes (rank, questions
-       done, points) and then the quiz's name. -->
+  <!-- Top bar: [x] back to Home and the quiz's name; while playing, three
+       boxes on the right (rank, question number out of the total, points). -->
   <header class="video-bar">
     <a class="video-close" id="quizClose" href="index.html" aria-label="Back to Home" data-i18n-aria-label="quiz.back" title="Back to Home" data-i18n-title="quiz.back">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </a>
+    <h1 class="video-title" id="quizTitle"></h1>
     <div class="quiz-stats" id="quizStats" hidden>
       <div class="quiz-stat">
         <span class="quiz-stat-label" data-i18n="quiz.stat.rank">Rank</span>
         <span class="quiz-stat-value tnum" id="statRank">–</span>
       </div>
       <div class="quiz-stat">
-        <span class="quiz-stat-label" data-i18n="quiz.stat.done">Done</span>
-        <span class="quiz-stat-value tnum" id="statDone">0</span>
+        <span class="quiz-stat-label" data-i18n="quiz.stat.question">Question</span>
+        <span class="quiz-stat-value tnum" id="statDone">0/0</span>
       </div>
       <div class="quiz-stat">
         <span class="quiz-stat-label" data-i18n="quiz.stat.points">Points</span>
         <span class="quiz-stat-value tnum" id="statPoints">0</span>
       </div>
     </div>
-    <h1 class="video-title" id="quizTitle"></h1>
   </header>
 
   <main class="quiz-stage">
@@ -73,7 +75,6 @@
         <span class="quiz-timer-text tnum" id="timerText"></span>
       </div>
       <div class="card quiz-card">
-        <p class="quiz-q-count" id="qCount"></p>
         <img class="quiz-q-image" id="qImage" alt="" hidden referrerpolicy="no-referrer">
         <h2 class="quiz-q-prompt" id="qPrompt"></h2>
         <p class="quiz-q-hint" id="qHint" data-i18n="quiz.selectAll" hidden>Select all that apply</p>

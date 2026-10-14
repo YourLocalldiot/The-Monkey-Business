@@ -178,7 +178,10 @@
 
       async function onDelete() {
         var label = state.display_name_en.trim() || 'this video';
-        if (!window.confirm('Delete "' + label + '"? This cannot be undone.')) return;
+        var yes = await window.UI.confirm('Delete "' + label + '"? This cannot be undone.', {
+          title: 'Delete video', confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true
+        });
+        if (!yes) return;
         P.status(statusEl, 'Deleting…');
         var result = await P.withBusy([saveBtn, deleteBtn], function () {
           return window.sb.from('videos').delete().eq('id', state.id).select('id');

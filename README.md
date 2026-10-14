@@ -41,6 +41,9 @@ assets/js/moderator.js           CMS shell: access gate, tabs, and the helpers t
 assets/js/moderator-playlists.js CMS > Playlists: details + the ordered videos/quizzes inside, saved through save_playlist()
 assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions (with an optional picture link), answers, correct answers, time limits, shuffle switches, CSV bulk add; saved through save_quiz()
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
+assets/js/moderator-effects.js  CMS > Effects: the correct / incorrect flashes a quiz plays (type, text or emoji, colour, flash time), with a preview
+assets/js/effects.js            Plays an effect (a coloured blur flash over the screen + a text/emoji) and loads them from quiz_effects
+assets/js/ui.js                 The site's own notifications: toasts, confirm dialog, form-validation messages (replace the browser's)
 assets/js/quiz-import.js        Reads the quiz template CSV and validates it for the CMS Quizzes tab
 assets/templates/               TheMonkeyBusinessQuizTemplate.csv, the downloadable template for bulk-adding quiz questions
 assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)

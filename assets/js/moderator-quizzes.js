@@ -272,10 +272,16 @@
         changed();
       }
 
-      function removeQuestion(index) {
+      async function removeQuestion(index) {
         var q = state.questions[index];
         var hasContent = q.prompt.trim() || q.image_url.trim() || q.options.some(isFilled);
-        if (hasContent && !window.confirm('Delete question ' + (index + 1) + '?')) return;
+        if (hasContent) {
+          var yes = await window.UI.confirm('Delete question ' + (index + 1) + '?', {
+            title: 'Delete question', confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true
+          });
+          if (!yes) return;
+          if (state.questions[index] !== q) return;   // the list changed while the dialog was open
+        }
         state.questions.splice(index, 1);
         renderQuestions();
         changed();
@@ -686,7 +692,10 @@
 
       async function onDelete() {
         var label = state.display_name.trim() || 'this quiz';
-        if (!window.confirm('Delete "' + label + '" and all of its questions? This cannot be undone.')) return;
+        var yes = await window.UI.confirm('Delete "' + label + '" and all of its questions? This cannot be undone.', {
+          title: 'Delete quiz', confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true
+        });
+        if (!yes) return;
         P.status(statusEl, 'Deleting…');
         var result = await P.withBusy([saveBtn, deleteBtn], function () {
           return window.sb.from('quizzes').delete().eq('id', state.id).select('id');

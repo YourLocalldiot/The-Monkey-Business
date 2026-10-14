@@ -26,6 +26,12 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 - **Until it's run:** Home's quiz pieces open the quiz page, but it says the quiz isn't available yet and can't start; the CMS picture field is disabled and a question can't be given a picture.
 - **Added:** 2026-10-14.
 
+### `quiz_effects: schema + rls + starter effects`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz effects". Independent of the other pending snippets (it only needs the `profiles` query).
+- **Why it's needed:** the table behind **CMS → Effects** (the flashes a quiz plays on a right or wrong answer), with the two starter effects: a green ✅ for 0.8 s and a brown 💩 for 1.5 s.
+- **Until it's run:** quizzes still flash those two starter effects (built in as a fallback), but the CMS Effects tab can't load, add, edit or delete anything.
+- **Added:** 2026-10-14.
+
 ## Applied
 
 As of the comparison above, every other snippet in `supabase-sql.md` appears to have been applied:

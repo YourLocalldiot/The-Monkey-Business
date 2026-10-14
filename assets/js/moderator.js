@@ -155,9 +155,14 @@
     onDiscard = dirty ? (discardHandler || null) : null;
   };
 
-  CMS.confirmDiscard = function () {
+  // Asks (in the site's own dialog) before throwing unsaved changes away.
+  // Resolves true when there is nothing to lose or the user agrees.
+  CMS.confirmDiscard = async function () {
     if (!dirty) return true;
-    if (!window.confirm('You have unsaved changes. Discard them?')) return false;
+    var discard = await window.UI.confirm('You have unsaved changes. Discard them?', {
+      title: 'Unsaved changes', confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true
+    });
+    if (!discard) return false;
     var handler = onDiscard;
     dirty = false;
     onDiscard = null;
@@ -208,7 +213,7 @@
     var newButton = el('button', {
       type: 'button',
       class: 'btn-primary cms-new-btn',
-      onclick: function () { if (CMS.confirmDiscard()) options.onNew(); }
+      onclick: async function () { if (await CMS.confirmDiscard()) options.onNew(); }
     }, CMS.icon('plus', 14), options.newLabel);
     var note = el('p', { class: 'cms-list-note', hidden: true });
     var list = el('ul', { class: 'cms-list' });
@@ -246,8 +251,8 @@
             'aria-current': item.id === selectedId ? 'true' : 'false',
             // Clicking the open item reloads it, which is also how you get
             // back to it after discarding changes in another tab.
-            onclick: function () {
-              if (CMS.confirmDiscard()) options.onSelect(item.id);
+            onclick: async function () {
+              if (await CMS.confirmDiscard()) options.onSelect(item.id);
             }
           },
             el('span', { class: 'cms-list-title', text: item.title }),
@@ -260,9 +265,9 @@
 
   // ---------- Tabs + access gate ----------
 
-  function showTab(name) {
+  async function showTab(name) {
     if (!sections[name] || name === currentTab) return;
-    if (!CMS.confirmDiscard()) return;
+    if (!(await CMS.confirmDiscard())) return;
     currentTab = name;
 
     document.querySelectorAll('.cms-tab').forEach(function (tab) {

@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     intro: $('quizIntro'), play: $('quizPlay'), result: $('quizResult'),
     introName: $('introName'), introDesc: $('introDesc'), introMeta: $('introMeta'),
     timer: $('quizTimer'), timerFill: $('timerFill'), timerText: $('timerText'),
-    qCount: $('qCount'), qImage: $('qImage'), qPrompt: $('qPrompt'), qHint: $('qHint'),
+    qImage: $('qImage'), qPrompt: $('qPrompt'), qHint: $('qHint'),
     qOptions: $('qOptions'), qFeedback: $('qFeedback'),
     resultScore: $('resultScore'), resultPlace: $('resultPlace'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'),
@@ -74,10 +74,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     return I18N.t(count === 1 ? oneKey : manyKey, { count: I18N.number(count) });
   }
 
-  function setStats(place, total, done, points) {
-    if (place !== null) el.statRank.textContent = place + '/' + total;
-    el.statDone.textContent = done;
+  function setStats(place, total, points) {
+    el.statRank.textContent = place + '/' + total;
     el.statPoints.textContent = I18N.number(points);
+  }
+
+  // The question being played, out of all of them.
+  function setProgress(current, count) {
+    el.statDone.textContent = current + '/' + count;
   }
 
   // ---------- leaderboard ----------
@@ -171,8 +175,17 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // ---------- leaving ----------
 
-  el.close.addEventListener('click', function (event) {
-    if (page.dataset.state === 'play' && !window.confirm(I18N.t('quiz.leave'))) event.preventDefault();
+  // Leaving in the middle of a run asks first, in the site's own dialog.
+  el.close.addEventListener('click', async function (event) {
+    if (page.dataset.state !== 'play') return;
+    event.preventDefault();
+    var leave = await window.UI.confirm(I18N.t('quiz.leave'), {
+      title: I18N.t('quiz.leave.title'),
+      confirmLabel: I18N.t('quiz.leave.confirm'),
+      cancelLabel: I18N.t('quiz.leave.stay'),
+      danger: true
+    });
+    if (leave) window.location.href = el.close.href;
   });
   el.again.addEventListener('click', function () { window.location.reload(); });
 
@@ -185,8 +198,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     showNote('');
     el.countdown.hidden = false;
 
-    // Fetch the questions while the countdown runs.
+    // Fetch the questions (and the effects) while the countdown runs.
     var loading = window.sb.rpc('start_quiz', { p_quiz_id: quizId });
+    var effectsReady = window.Effects.load();
 
     for (var n = COUNTDOWN_FROM; n >= 1; n--) {
       el.countdownNumber.textContent = n;
@@ -198,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     var started = await loading;
+    await effectsReady;
     el.countdown.hidden = true;
     el.start.disabled = false;
     if (started.error || !started.data) {
@@ -236,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     showNote('');
     el.title.textContent = quizName;
     setState('play');
-    setStats(run.place, run.total, 0, 0);
+    setStats(run.place, run.total, 0);
     showQuestion();
   }
 
@@ -252,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     run.pending = null;
     run.limit = q.time_limit_seconds || 30;
 
-    el.qCount.textContent = I18N.t('quiz.questionOf', { n: run.index + 1, total: run.questions.length });
+    setProgress(run.index + 1, run.questions.length);
     el.qPrompt.textContent = I18N.pick(q.prompt_vn, q.prompt);
     el.qHint.hidden = !q.multiple;
     el.qFeedback.hidden = true;
@@ -392,7 +407,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     run.score = graded.score;
     run.place = graded.place;
     run.total = graded.total;
-    setStats(graded.place, graded.total, run.index + 1, graded.score);
+    setStats(graded.place, graded.total, graded.score);
+
+    // A right or a wrong pick flashes the effect of that kind (a timeout
+    // with nothing picked doesn't).
+    if (p.ids.length > 0) window.Effects.play(window.Effects.pick(graded.correct ? 'correct' : 'incorrect'));
 
     var last = run.index === run.questions.length - 1;
     setAction(I18N.t(last ? 'quiz.finish' : 'quiz.next'), false, function () {
@@ -416,7 +435,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
     stopTimer();
     setState('result');
-    setStats(done.data.place, done.data.total, run.questions.length, done.data.score);
+    setStats(done.data.place, done.data.total, done.data.score);
+    setProgress(run.questions.length, run.questions.length);
     el.resultScore.textContent = I18N.t('quiz.result.score', { points: I18N.number(done.data.score) });
     el.resultPlace.textContent = I18N.t('quiz.result.place', { place: done.data.place, total: done.data.total });
     loadBoard('resultBoard', 'resultBoardEmpty');
