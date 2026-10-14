@@ -33,7 +33,8 @@ assets/js/supabase-client.js     The one shared Supabase client (project URL + a
 assets/js/auth.js                Session-driven UI: Log in/Profile toggle, moderator-only CMS link, Home's greeting name
 assets/js/password-toggle.js     Show/hide button wiring, shared by every password field on the site
 assets/js/login.js               Wires login.html: sign-in, "email not confirmed" resend, loading state
-assets/js/signup.js              Wires signup.html: sign-up, password-match check, loading state
+assets/js/signup.js              Wires signup.html: checks every field, username availability, every failure with its own message, then sends the user to the login page
+assets/js/auth-errors.js        Turns Supabase Auth errors into messages in the page's language (used by sign-up, login and the reset pages)
 assets/js/profile.js             Loads the signed-in user's profile row; wires the Log out button
 assets/js/reset-password-request.js  Sends the reset email
 assets/js/reset-password.js      Validates the recovery session, sets the new password

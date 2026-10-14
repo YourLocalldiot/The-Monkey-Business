@@ -8,33 +8,15 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 
 ## Currently pending
 
-### `i18n: vietnamese content + language`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Vietnamese content (the language switch)". Run it after the `cms` query.
-- **Why it's needed:** the CMS Quizzes tab now has Vietnamese fields for the quiz name, description, questions and answers, and `profiles.language` stores the language a user chose on their Profile page. It also replaces `save_quiz` (new Vietnamese arguments) and `search_quizzes` (searches the Vietnamese text too).
-- **Until it's run:** the CMS **Quizzes tab can't load or save** (it asks for columns that don't exist yet). The rest of the site works: quiz names fall back to English on Browse playlists and Home, and the chosen language is saved on the device only, not on the account.
-- **Added:** 2026-10-11.
-
-### `quizzes: shuffle + default language`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz shuffling + Vietnamese for new accounts". Run it **after** `i18n: vietnamese content + language` (and don't re-run the `i18n` query afterwards).
-- **Why it's needed:** adds `quizzes.shuffle_questions` / `quizzes.shuffle_answers` (the two "shuffle" switches in the CMS Quizzes tab) and replaces `save_quiz` to save them. It also makes new accounts start in Vietnamese (`handle_new_user` sets `profiles.language = 'vi'`).
-- **Until it's run:** the CMS shuffle switches are disabled, and a quiz saves without them. New accounts still pick up Vietnamese on the device they signed up on (the sign-up page stores it), but the account itself has no language saved, so on another device the browser's language decides.
-- **Added:** 2026-10-13.
-
-### `quizzes: pictures + player + leaderboard`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz player: pictures, playing, leaderboard". Run it **after** `quizzes: shuffle + default language` (and don't re-run the older `save_quiz` queries afterwards).
-- **Why it's needed:** adds a picture link to each quiz question (CMS field + `image_url` CSV column), the functions the quiz page (`quiz.html`) plays through (`get_quiz_intro`, `start_quiz`, `answer_question`, `finish_quiz`) and the per-quiz leaderboard (`quiz_players` + `get_quiz_leaderboard`: usernames and places only; each player's best score is kept privately, only to work out places).
-- **Until it's run:** Home's quiz pieces open the quiz page, but it says the quiz isn't available yet and can't start; the CMS picture field is disabled and a question can't be given a picture.
-- **Added:** 2026-10-14.
-
-### `quiz_effects: schema + rls + starter effects`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz effects". Independent of the other pending snippets (it only needs the `profiles` query).
-- **Why it's needed:** the table behind **CMS → Effects** (the flashes a quiz plays on a right or wrong answer), with the two starter effects: a green ✅ for 0.8 s and a brown 💩 for 1.5 s.
-- **Until it's run:** quizzes still flash those two starter effects (built in as a fallback), but the CMS Effects tab can't load, add, edit or delete anything.
+### `signup: username checks`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Sign-up: username checks". Only needs the `profiles` query.
+- **Why it's needed:** `username_available()` lets the sign-up page tell people a username is taken *before* they submit (and after, when two people race for it); usernames also become unique ignoring capitals, and the 3-24 letters/numbers/underscores rule is enforced in the database for new usernames.
+- **Until it's run:** sign-up still works and shows a sensible message when the username is taken, but only after submitting ("that username may already be taken"); `Khi` and `khi` are both allowed.
 - **Added:** 2026-10-14.
 
 ## Applied
 
-As of the comparison above, every other snippet in `supabase-sql.md` appears to have been applied:
+As of the comparison above (plus what you confirmed on 2026-10-14), every other snippet in `supabase-sql.md` has been applied:
 
 | Snippet (the "Save as" name) | What it covers |
 | --- | --- |
@@ -43,6 +25,10 @@ As of the comparison above, every other snippet in `supabase-sql.md` appears to 
 | `profiles: lock down set_profile_moderator` | stops the anonymous API role from promoting users to moderator |
 | `cms: videos, quizzes, playlist contents` | videos, quizzes, questions/answers, playlist contents, and the save/search functions |
 | `user_playlists: schema + rls` | which playlists each user added, and the current one on Home |
+| `i18n: vietnamese content + language` | Vietnamese columns for quizzes, `profiles.language`, new `save_quiz` / `search_quizzes` *(you confirmed 2026-10-14)* |
+| `quizzes: shuffle + default language` | quiz shuffle switches, new accounts default to Vietnamese *(you confirmed 2026-10-14)* |
+| `quizzes: pictures + player + leaderboard` | question pictures, the quiz player functions, `quiz_players` + leaderboard *(you confirmed 2026-10-14)* |
+| `quiz_effects: schema + rls + starter effects` | the effects table and the two starter effects *(you confirmed 2026-10-14)* |
 
 (That table is only a record of what the check found. It isn't a to-do list.)
 

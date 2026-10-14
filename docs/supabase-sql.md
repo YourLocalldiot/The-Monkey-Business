@@ -1812,6 +1812,61 @@ select v.kind, v.content, v.color, v.duration_seconds
 
 Until it has been run: quizzes still flash those same two starter effects (they are built in as a fallback), but **CMS → Effects** can't load or save anything.
 
+## Sign-up: username checks
+
+**Run this after the `profiles` query.** Three things around usernames:
+
+1. **`username_available(p_username)`**, callable before anyone is signed in. The sign-up page uses it to say "That username is already taken" the moment the field loses focus and again just before sending, instead of failing afterwards with Supabase's unhelpful "Database error saving new user" (that is what an already-used username looks like from the browser: the new-user trigger fails on the unique username, and Supabase hides the reason).
+2. **Usernames are unique whatever their capitals**: `Khi_Gioi` and `khi_gioi` can no longer both exist (they would look like the same person on the leaderboard). If some existing usernames only differ by capitals, the index is skipped with a notice; rename those users and run this again.
+3. **A format check in the database**: 3–24 letters, numbers or underscores, the same rule the sign-up form applies. It is added as `not valid`, so existing rows are left alone and only new or changed usernames are checked.
+
+**Save as:** `signup: username checks`
+
+Safe to re-run.
+
+```sql
+-- 1. Is this username free? (Case-insensitive; says nothing about who has it.)
+create or replace function public.username_available(p_username text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1 from public.profiles
+     where lower(username) = lower(btrim(coalesce(p_username, '')))
+  );
+$$;
+
+revoke execute on function public.username_available(text) from public;
+grant  execute on function public.username_available(text) to anon, authenticated;
+
+-- 2. One account per username, ignoring capitals.
+do $$
+begin
+  if not exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'profiles_username_lower_key') then
+    if exists (select 1 from public.profiles group by lower(username) having count(*) > 1) then
+      raise notice 'Skipped profiles_username_lower_key: some usernames differ only by capitals. Rename them, then run this again.';
+    else
+      create unique index profiles_username_lower_key on public.profiles (lower(username));
+    end if;
+  end if;
+end $$;
+
+-- 3. The same format the sign-up form asks for. "not valid" = only new and
+--    changed rows are checked, so older usernames can't block this.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_username_format') then
+    alter table public.profiles
+      add constraint profiles_username_format check (username ~ '^[A-Za-z0-9_]{3,24}$') not valid;
+  end if;
+end $$;
+```
+
+Until it has been run: sign-up still works and still turns the "database error" into a message (it says the username *may* be taken, because it can't look it up), but a taken username is only discovered after submitting, and two usernames that differ only by capitals are allowed.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

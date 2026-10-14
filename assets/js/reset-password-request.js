@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Same message either way — confirming or denying an email exists
     // would let someone probe which emails have accounts.
     if (error) {
-      showMessage(error.message, true);
+      showMessage(window.AuthErrors.text(error), true);
       return;
     }
     showMessage(I18N.t('resetReq.sent'), false);

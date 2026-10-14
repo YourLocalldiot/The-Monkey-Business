@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     submitBtn.textContent = I18N.t('reset.update');
 
     if (error) {
-      showMessage(error.message, true);
+      showMessage(window.AuthErrors.text(error), true);
       return;
     }
 

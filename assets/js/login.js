@@ -23,6 +23,28 @@ document.addEventListener('DOMContentLoaded', async function () {
     message.textContent = text;
     message.hidden = false;
     message.classList.toggle('is-error', !!isError);
+    message.classList.toggle('is-ok', !isError);
+  }
+
+  // Sent here by signup.js after creating an account: ?registered=1 (go ahead
+  // and log in) or ?registered=confirm (confirm the email first). The address
+  // they signed up with is filled in for them.
+  var registered = new URLSearchParams(window.location.search).get('registered');
+  if (registered === '1' || registered === 'confirm') {
+    var welcome = I18N.t(registered === 'confirm' ? 'login.registeredConfirm' : 'login.registered');
+    showMessage(welcome, false);
+    if (window.UI) window.UI.toast(welcome, { kind: 'success', title: I18N.t('login.registeredTitle'), duration: 9000 });
+    try {
+      var signedUpAs = sessionStorage.getItem('signupEmail');
+      sessionStorage.removeItem('signupEmail');
+      if (signedUpAs) {
+        form.email.value = signedUpAs;
+        form.password.focus();
+      }
+    } catch (ignored) {}
+    // so a refresh doesn't show the welcome again
+    try { window.history.replaceState(null, '', window.location.pathname); } catch (ignored) {}
+    if (registered === 'confirm' && resendBtn) resendBtn.hidden = false;
   }
 
   form.addEventListener('submit', async function (e) {
@@ -40,21 +62,23 @@ document.addEventListener('DOMContentLoaded', async function () {
     submitBtn.disabled = true;
     submitBtn.textContent = I18N.t('login.submitting');
 
-    var { error } = await window.sb.auth.signInWithPassword({
-      email: email,
-      password: form.password.value
-    });
+    var result;
+    try {
+      result = await window.sb.auth.signInWithPassword({
+        email: email,
+        password: form.password.value
+      });
+    } catch (thrown) {
+      result = { error: thrown };
+    }
+    var error = result.error;
 
     submitBtn.disabled = false;
     submitBtn.textContent = I18N.t('auth.login');
 
     if (error) {
-      if (/email not confirmed/i.test(error.message)) {
-        showMessage(I18N.t('login.notConfirmed'), true);
-        if (resendBtn) resendBtn.hidden = false;
-      } else {
-        showMessage(error.message, true);
-      }
+      showMessage(window.AuthErrors.text(error), true);
+      if (window.AuthErrors.kind(error) === 'unconfirmed' && resendBtn) resendBtn.hidden = false;
       return;
     }
 
@@ -78,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       resendBtn.textContent = I18N.t('auth.resend');
 
       if (error) {
-        showMessage(error.message, true);
+        showMessage(window.AuthErrors.text(error), true);
         return;
       }
       resendBtn.hidden = true;

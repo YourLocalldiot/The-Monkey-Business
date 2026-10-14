@@ -12,8 +12,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var willShow = input.type === 'password';
       input.type = willShow ? 'text' : 'password';
       btn.setAttribute('aria-label', willShow ? I18N.t('auth.hide') : I18N.t('auth.show'));
-      if (showIcon) showIcon.hidden = willShow;
-      if (hideIcon) hideIcon.hidden = !willShow;
+      // setAttribute, not the .hidden property: the icons are SVG elements,
+      // which have no .hidden property (the styles.css rule hides them).
+      if (showIcon) showIcon.toggleAttribute('hidden', willShow);
+      if (hideIcon) hideIcon.toggleAttribute('hidden', !willShow);
     });
   });
 });
