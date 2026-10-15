@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     qImage: $('qImage'), qPrompt: $('qPrompt'), qHint: $('qHint'),
     qOptions: $('qOptions'), qFeedback: $('qFeedback'),
     resultScore: $('resultScore'), resultPlace: $('resultPlace'),
+    introReward: $('introReward'), resultReward: $('resultReward'),
+    resultRewardCaption: $('resultRewardCaption'), resultRewardPills: $('resultRewardPills'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
   };
@@ -168,6 +170,15 @@ document.addEventListener('DOMContentLoaded', async function () {
   el.introMeta.textContent =
     plural(intro.data.question_count, 'quiz.questions.one', 'quiz.questions.many') + ' · ' +
     plural(intro.data.player_count, 'quiz.players.one', 'quiz.players.many');
+
+  // What finishing would earn this player right now (the first time, or a replay).
+  var reward = intro.data.reward;
+  if (reward && (reward.exp > 0 || reward.bananas > 0)) {
+    el.introReward.textContent = I18N.t(reward.first ? 'quiz.reward.introFirst' : 'quiz.reward.introRepeat', {
+      exp: I18N.number(reward.exp), bananas: I18N.number(reward.bananas)
+    });
+    el.introReward.hidden = false;
+  }
 
   showNote('');
   setState('intro');
@@ -422,6 +433,31 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // ---------- result ----------
 
+  // What this finish paid: "+100 EXP" and "+50 bananas" (not shown when it
+  // paid nothing, or when the database doesn't pay rewards yet).
+  function showReward(paid) {
+    clear(el.resultRewardPills);
+    var any = paid.exp > 0 || paid.bananas > 0;
+    el.resultReward.hidden = !any;
+    if (!any) return;
+    el.resultRewardCaption.textContent = I18N.t(paid.first ? 'quiz.reward.captionFirst' : 'quiz.reward.captionRepeat');
+
+    function pill(text, icon) {
+      var span = document.createElement('span');
+      span.className = 'quiz-reward-pill';
+      if (icon) {
+        var img = document.createElement('img');
+        img.src = icon;
+        img.alt = '';
+        span.appendChild(img);
+      }
+      span.appendChild(document.createTextNode(text));
+      el.resultRewardPills.appendChild(span);
+    }
+    if (paid.exp > 0) pill(I18N.t('quiz.reward.exp', { exp: I18N.number(paid.exp) }), null);
+    if (paid.bananas > 0) pill(I18N.t('quiz.reward.bananas', { bananas: I18N.number(paid.bananas) }), 'assets/images/currency.png');
+  }
+
   async function finish() {
     el.action.disabled = true;
     var done = await window.sb.rpc('finish_quiz', { p_quiz_id: quizId });
@@ -439,6 +475,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     setProgress(run.questions.length, run.questions.length);
     el.resultScore.textContent = I18N.t('quiz.result.score', { points: I18N.number(done.data.score) });
     el.resultPlace.textContent = I18N.t('quiz.result.place', { place: done.data.place, total: done.data.total });
+    showReward(done.data);
     loadBoard('resultBoard', 'resultBoardEmpty');
     window.scrollTo(0, 0);
   }

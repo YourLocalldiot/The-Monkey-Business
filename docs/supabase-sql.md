@@ -1867,6 +1867,411 @@ end $$;
 
 Until it has been run: sign-up still works and still turns the "database error" into a message (it says the username *may* be taken, because it can't look it up), but a taken username is only discovered after submitting, and two usernames that differ only by capitals are allowed.
 
+## Quiz pictures: uploads
+
+**Run this on its own** (it only needs `is_moderator()` from the `profiles` query). Creates a public Storage bucket, `quiz-images`, for pictures uploaded in **CMS → Quizzes** (the **Upload a picture** button beside each question's picture link). Anyone can see the pictures (they are shown in quizzes); only moderators can upload, replace or delete them. PNG, JPG, WebP and GIF, up to 5 MB each. A question still just stores the picture's link, so pasting a link keeps working.
+
+**Save as:** `quiz-images: storage bucket`
+
+Safe to re-run.
+
+```sql
+-- The bucket: public to read (a picture's link works for everyone), limited
+-- to small image files.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('quiz-images', 'quiz-images', true, 5242880,
+        array['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+-- Who can change what in it. Reading a picture by its link needs no policy
+-- (the bucket is public); these are for the CMS.
+drop policy if exists "Moderators can view quiz images" on storage.objects;
+create policy "Moderators can view quiz images"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'quiz-images' and (select public.is_moderator()));
+
+drop policy if exists "Moderators can upload quiz images" on storage.objects;
+create policy "Moderators can upload quiz images"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'quiz-images' and (select public.is_moderator()));
+
+drop policy if exists "Moderators can replace quiz images" on storage.objects;
+create policy "Moderators can replace quiz images"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'quiz-images' and (select public.is_moderator()))
+  with check (bucket_id = 'quiz-images' and (select public.is_moderator()));
+
+drop policy if exists "Moderators can delete quiz images" on storage.objects;
+create policy "Moderators can delete quiz images"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'quiz-images' and (select public.is_moderator()));
+```
+
+Until it has been run: **Upload a picture** says the upload needs a database update. Pasting a picture link works as before. (A picture that is replaced or removed from a question stays in the bucket; clean it up in the Supabase dashboard under Storage if you like.)
+
+## Quiz rewards: EXP and bananas
+
+**Run this after the `quizzes: pictures + player + leaderboard` query above.** Finishing a quiz now pays out **EXP** and **bananas** (`profiles.coins`): one amount the first time a player finishes that quiz, another every time after. The four amounts are set per quiz in **CMS → Quizzes → Rewards** (new quizzes start at 100 EXP + 50 bananas the first time, 20 EXP + 10 bananas on replays). Payout happens inside `finish_quiz`, in the database, so it can't be faked from the browser, and finishing can't be repeated for the same run.
+
+What it changes:
+
+- `profiles.exp` (new, starts at 0), shown on the Profile page. `protect_privileged_columns()` now protects it like coins/streak/role, and lets the rewarding function through (`app.rewarding`, a flag set only inside `finish_quiz`).
+- `quizzes.reward_first_exp`, `reward_first_bananas`, `reward_repeat_exp`, `reward_repeat_bananas` (0 to 100000 each).
+- `quiz_players.completions`: how many times each player has finished each quiz. Players who had already finished a quiz before this query count as having finished it once, so they get the replay reward, not the first-time one.
+- `save_quiz` takes the four amounts (new last argument `p_rewards`); `get_quiz_intro` also tells the player what finishing would earn them; `finish_quiz` pays out and reports what was paid.
+
+**Save as:** `quizzes: rewards + exp`
+
+Safe to re-run. It drops the previous `save_quiz` first, because the API can't choose between two functions with the same name. **Don't re-run the older `save_quiz` queries after this one.**
+
+```sql
+-- =====================================================================
+-- Quiz rewards (EXP + bananas) and profiles.exp
+-- Run after the pictures/player query.
+-- =====================================================================
+
+-- 1. EXP on the profile, and the reward amounts on each quiz.
+alter table public.profiles add column if not exists exp integer not null default 0;
+
+alter table public.quizzes add column if not exists reward_first_exp      integer not null default 100;
+alter table public.quizzes add column if not exists reward_first_bananas  integer not null default 50;
+alter table public.quizzes add column if not exists reward_repeat_exp     integer not null default 20;
+alter table public.quizzes add column if not exists reward_repeat_bananas integer not null default 10;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'quizzes_rewards_check') then
+    alter table public.quizzes add constraint quizzes_rewards_check check (
+      reward_first_exp between 0 and 100000 and reward_first_bananas between 0 and 100000
+      and reward_repeat_exp between 0 and 100000 and reward_repeat_bananas between 0 and 100000
+    );
+  end if;
+end $$;
+
+-- 2. How many times each player has finished each quiz. Anyone who already
+--    finished one counts as having done it once.
+alter table public.quiz_players add column if not exists completions integer not null default 0;
+update public.quiz_players set completions = 1 where best_score is not null and completions = 0;
+
+-- 3. exp joins coins/streak_days/role as columns a player can't change
+--    themselves; finish_quiz() is allowed to (see app.rewarding there).
+create or replace function public.protect_privileged_columns()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if auth.uid() is not null
+     and not public.is_moderator()
+     and coalesce(current_setting('app.rewarding', true), '') <> 'on' then
+    new.coins := old.coins;
+    new.streak_days := old.streak_days;
+    new.role := old.role;
+    new.exp := old.exp;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- 4. save_quiz also saves the rewards. The old version is dropped first.
+drop function if exists public.save_quiz(bigint, text, text, jsonb, text, text, boolean, boolean);
+
+create or replace function public.save_quiz(
+  p_quiz_id         bigint,   -- null creates a new quiz
+  p_display_name    text,
+  p_description     text,
+  p_questions       jsonb,    -- [{"id": 4, "prompt": "...", "prompt_vn": "...", "time_limit_seconds": 30,
+                              --   "options": [{"id": 9, "text": "...", "text_vn": "...", "is_correct": true}, ...]}, ...]
+  p_display_name_vn text default null,
+  p_description_vn  text default null,
+  p_shuffle_questions boolean default null,   -- null = leave as it is (false for a new quiz)
+  p_shuffle_answers   boolean default null,
+  p_rewards         jsonb default null          -- {"first_exp": 100, "first_bananas": 50, "repeat_exp": 20, "repeat_bananas": 10}; null = leave as it is
+) returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_quiz_id   bigint := p_quiz_id;
+  v_q         jsonb;
+  v_o         jsonb;
+  v_q_pos     integer := 0;
+  v_o_pos     integer;
+  v_q_id      bigint;
+  v_o_id      bigint;
+  v_keep_q    bigint[] := '{}';
+  v_keep_o    bigint[];
+  v_prompt    text;
+  v_prompt_vn text;
+  v_text      text;
+  v_text_vn   text;
+  v_time      integer;
+  v_image     text;
+  v_fe        integer;
+  v_fb        integer;
+  v_re        integer;
+  v_rb        integer;
+  v_options   integer;
+  v_correct   integer;
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can edit quizzes.' using errcode = '42501';
+  end if;
+  if btrim(coalesce(p_display_name, '')) = '' then
+    raise exception 'The quiz needs a name.';
+  end if;
+  if jsonb_typeof(coalesce(p_questions, '[]'::jsonb)) <> 'array' then
+    raise exception 'The quiz questions must be a list.';
+  end if;
+
+  if v_quiz_id is null then
+    insert into public.quizzes (display_name, display_name_vn, description, description_vn, shuffle_questions, shuffle_answers)
+    values (
+      btrim(p_display_name),
+      nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+      nullif(btrim(coalesce(p_description, '')), ''),
+      nullif(btrim(coalesce(p_description_vn, '')), ''),
+      coalesce(p_shuffle_questions, false),
+      coalesce(p_shuffle_answers, false)
+    )
+    returning id into v_quiz_id;
+  else
+    update public.quizzes
+       set display_name    = btrim(p_display_name),
+           display_name_vn = nullif(btrim(coalesce(p_display_name_vn, '')), ''),
+           description     = nullif(btrim(coalesce(p_description, '')), ''),
+           description_vn  = nullif(btrim(coalesce(p_description_vn, '')), ''),
+           shuffle_questions = coalesce(p_shuffle_questions, shuffle_questions),
+           shuffle_answers   = coalesce(p_shuffle_answers, shuffle_answers)
+     where id = v_quiz_id;
+    if not found then
+      raise exception 'This quiz no longer exists. Reload the page and try again.';
+    end if;
+  end if;
+
+  -- What finishing the quiz is worth (only the amounts that were sent change).
+  if p_rewards is not null then
+    v_fe := nullif(p_rewards ->> 'first_exp', '')::integer;
+    v_fb := nullif(p_rewards ->> 'first_bananas', '')::integer;
+    v_re := nullif(p_rewards ->> 'repeat_exp', '')::integer;
+    v_rb := nullif(p_rewards ->> 'repeat_bananas', '')::integer;
+    if coalesce(v_fe, 0) not between 0 and 100000 or coalesce(v_fb, 0) not between 0 and 100000
+       or coalesce(v_re, 0) not between 0 and 100000 or coalesce(v_rb, 0) not between 0 and 100000 then
+      raise exception 'The EXP and banana rewards must be whole numbers from 0 to 100000.';
+    end if;
+    update public.quizzes
+       set reward_first_exp       = coalesce(v_fe, reward_first_exp),
+           reward_first_bananas   = coalesce(v_fb, reward_first_bananas),
+           reward_repeat_exp      = coalesce(v_re, reward_repeat_exp),
+           reward_repeat_bananas  = coalesce(v_rb, reward_repeat_bananas)
+     where id = v_quiz_id;
+  end if;
+
+  for v_q in
+    select e.item from jsonb_array_elements(coalesce(p_questions, '[]'::jsonb)) as e(item)
+  loop
+    v_q_pos     := v_q_pos + 1;
+    v_prompt    := btrim(coalesce(v_q ->> 'prompt', ''));
+    v_prompt_vn := nullif(btrim(coalesce(v_q ->> 'prompt_vn', '')), '');
+    v_time      := nullif(v_q ->> 'time_limit_seconds', '')::integer;
+    v_image     := nullif(btrim(coalesce(v_q ->> 'image_url', '')), '');
+
+    if v_image is not null and (length(v_image) > 2000 or v_image !~* '^https?://[^[:space:]]+$') then
+      raise exception 'The picture link of question % must start with http:// or https:// and have no spaces.', v_q_pos;
+    end if;
+
+    if v_prompt = '' then
+      raise exception 'Question % needs some text.', v_q_pos;
+    end if;
+    if jsonb_typeof(coalesce(v_q -> 'options', '[]'::jsonb)) <> 'array' then
+      raise exception 'The answers of question % must be a list.', v_q_pos;
+    end if;
+
+    select count(*),
+           count(*) filter (where coalesce((o.opt ->> 'is_correct')::boolean, false))
+      into v_options, v_correct
+      from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as o(opt);
+    if v_options < 2 then
+      raise exception 'Question % needs at least two answers.', v_q_pos;
+    end if;
+    if v_correct < 1 then
+      raise exception 'Question % needs at least one correct answer.', v_q_pos;
+    end if;
+
+    v_q_id := nullif(v_q ->> 'id', '')::bigint;
+    if v_q_id is not null then
+      update public.quiz_questions
+         set position = v_q_pos, prompt = v_prompt, prompt_vn = v_prompt_vn, time_limit_seconds = v_time,
+             -- a caller that doesn't send image_url at all leaves the picture alone
+             image_url = case when v_q ? 'image_url' then v_image else image_url end
+       where id = v_q_id and quiz_id = v_quiz_id;
+      if not found then
+        raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+      end if;
+    else
+      insert into public.quiz_questions (quiz_id, position, prompt, prompt_vn, time_limit_seconds, image_url)
+      values (v_quiz_id, v_q_pos, v_prompt, v_prompt_vn, v_time, v_image)
+      returning id into v_q_id;
+    end if;
+    v_keep_q := v_keep_q || v_q_id;
+
+    v_o_pos  := 0;
+    v_keep_o := '{}';
+    for v_o in
+      select e.item from jsonb_array_elements(coalesce(v_q -> 'options', '[]'::jsonb)) as e(item)
+    loop
+      v_o_pos   := v_o_pos + 1;
+      v_text    := btrim(coalesce(v_o ->> 'text', ''));
+      v_text_vn := nullif(btrim(coalesce(v_o ->> 'text_vn', '')), '');
+      if v_text = '' then
+        raise exception 'Answer % of question % needs some text.', v_o_pos, v_q_pos;
+      end if;
+
+      v_o_id := nullif(v_o ->> 'id', '')::bigint;
+      if v_o_id is not null then
+        update public.quiz_options
+           set position       = v_o_pos,
+               option_text    = v_text,
+               option_text_vn = v_text_vn,
+               is_correct     = coalesce((v_o ->> 'is_correct')::boolean, false)
+         where id = v_o_id and question_id = v_q_id;
+        if not found then
+          raise exception 'This quiz was changed by someone else. Reload the page and try again.';
+        end if;
+      else
+        insert into public.quiz_options (question_id, position, option_text, option_text_vn, is_correct)
+        values (v_q_id, v_o_pos, v_text, v_text_vn, coalesce((v_o ->> 'is_correct')::boolean, false))
+        returning id into v_o_id;
+      end if;
+      v_keep_o := v_keep_o || v_o_id;
+    end loop;
+
+    delete from public.quiz_options where question_id = v_q_id and id <> all (v_keep_o);
+  end loop;
+
+  delete from public.quiz_questions where quiz_id = v_quiz_id and id <> all (v_keep_q);
+
+  return v_quiz_id;
+end;
+$$;
+
+revoke execute on function public.save_quiz(bigint, text, text, jsonb, text, text, boolean, boolean, jsonb) from public, anon;
+grant  execute on function public.save_quiz(bigint, text, text, jsonb, text, text, boolean, boolean, jsonb) to authenticated;
+
+-- 5. The quiz page's intro also says what finishing would earn.
+create or replace function public.get_quiz_intro(p_quiz_id bigint)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_quiz public.quizzes%rowtype;
+  v_done integer;
+  v_first boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+  select * into v_quiz from public.quizzes where id = p_quiz_id;
+  -- same visibility as the quizzes table: in a playlist, or you are a moderator
+  if not found or not (public.is_moderator()
+        or exists (select 1 from public.playlist_items pi where pi.quiz_id = p_quiz_id)) then
+    raise exception 'This quiz was not found.' using errcode = 'P0002';
+  end if;
+  -- what finishing the quiz would earn this player right now
+  select qp.completions into v_done
+    from public.quiz_players qp
+   where qp.quiz_id = p_quiz_id and qp.user_id = auth.uid();
+  v_first := coalesce(v_done, 0) = 0;
+  return jsonb_build_object(
+    'reward', jsonb_build_object(
+      'first', v_first,
+      'exp', case when v_first then v_quiz.reward_first_exp else v_quiz.reward_repeat_exp end,
+      'bananas', case when v_first then v_quiz.reward_first_bananas else v_quiz.reward_repeat_bananas end
+    ),
+    'name', v_quiz.display_name,
+    'name_vn', v_quiz.display_name_vn,
+    'description', v_quiz.description,
+    'description_vn', v_quiz.description_vn,
+    'question_count', (select count(*) from public.quiz_questions qq where qq.quiz_id = p_quiz_id),
+    'player_count', (select count(*) from public.quiz_players qp where qp.quiz_id = p_quiz_id and qp.best_score is not null)
+  );
+end;
+$$;
+
+-- 6. Finishing a quiz pays the reward.
+create or replace function public.finish_quiz(p_quiz_id bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid   uuid := auth.uid();
+  v_row   public.quiz_players%rowtype;
+  v_count integer;
+  v_best  integer;
+  v_place integer;
+  v_total integer;
+  v_quiz  public.quizzes%rowtype;
+  v_first boolean;
+  v_exp   integer;
+  v_bananas integer;
+begin
+  if v_uid is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+  select * into v_row from public.quiz_players
+   where quiz_id = p_quiz_id and user_id = v_uid
+   for update;
+  if not found then
+    raise exception 'Start the quiz first.';
+  end if;
+  select count(*) into v_count from public.quiz_questions qq where qq.quiz_id = p_quiz_id;
+  if cardinality(v_row.attempt_answered) < v_count then
+    raise exception 'Answer every question before finishing.';
+  end if;
+
+  -- The first finish pays the "first time" reward, every later one the "repeat" reward.
+  select * into v_quiz from public.quizzes where id = p_quiz_id;
+  v_first   := v_row.completions = 0;
+  v_exp     := case when v_first then v_quiz.reward_first_exp else v_quiz.reward_repeat_exp end;
+  v_bananas := case when v_first then v_quiz.reward_first_bananas else v_quiz.reward_repeat_bananas end;
+
+  v_best := greatest(coalesce(v_row.best_score, 0), v_row.attempt_score);
+  update public.quiz_players
+     set best_score = v_best, attempt_score = 0, attempt_answered = '{}',
+         completions = completions + 1, updated_at = now()
+   where quiz_id = p_quiz_id and user_id = v_uid;
+
+  -- Pay it out. protect_privileged_columns() (below) would undo a change to
+  -- coins/exp made on a player's behalf, so this transaction says it is the
+  -- rewarding function; nobody can set that flag through the API.
+  perform set_config('app.rewarding', 'on', true);
+  update public.profiles
+     set coins = coins + v_bananas, exp = exp + v_exp
+   where id = v_uid;
+  perform set_config('app.rewarding', 'off', true);
+
+  select r.place, r.total into v_place, v_total from public.quiz_rank(p_quiz_id, v_uid, v_best) r;
+
+  return jsonb_build_object(
+    'score', v_row.attempt_score, 'place', v_place, 'total', v_total,
+    'first', v_first, 'exp', v_exp, 'bananas', v_bananas
+  );
+end;
+$$;
+```
+
+Until it has been run: finishing a quiz works but pays nothing, the CMS **Rewards** fields are disabled, and the Profile page shows no EXP.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

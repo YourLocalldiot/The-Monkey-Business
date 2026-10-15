@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="assets/js/i18n-strings.js"></script>
   <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/loader.js"></script>
   <script>
     (function () {
       try {
@@ -60,6 +61,7 @@
         <h2 class="quiz-name" id="introName"></h2>
         <p class="quiz-desc" id="introDesc"></p>
         <p class="quiz-meta" id="introMeta"></p>
+        <p class="quiz-reward-intro" id="introReward" hidden></p>
       </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
@@ -89,6 +91,10 @@
         <h2 class="quiz-name" data-i18n="quiz.result.title">Quiz complete!</h2>
         <p class="quiz-result-score tnum" id="resultScore"></p>
         <p class="quiz-result-place" id="resultPlace"></p>
+        <div class="quiz-reward" id="resultReward" hidden>
+          <p class="quiz-reward-caption" id="resultRewardCaption"></p>
+          <div class="quiz-reward-pills" id="resultRewardPills"></div>
+        </div>
       </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>

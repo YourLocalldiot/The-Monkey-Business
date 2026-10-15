@@ -40,7 +40,7 @@ assets/js/reset-password-request.js  Sends the reset email
 assets/js/reset-password.js      Validates the recovery session, sets the new password
 assets/js/moderator.js           CMS shell: access gate, tabs, and the helpers the section scripts share
 assets/js/moderator-playlists.js CMS > Playlists: details + the ordered videos/quizzes inside, saved through save_playlist()
-assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions (with an optional picture link), answers, correct answers, time limits, shuffle switches, CSV bulk add; saved through save_quiz()
+assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions (with an optional picture: a link or an upload), answers, correct answers, time limits, shuffle switches, EXP/banana rewards, CSV bulk add; saved through save_quiz()
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
 assets/js/moderator-effects.js  CMS > Effects: the correct / incorrect flashes a quiz plays (type, text or emoji, colour, flash time), with a preview
 assets/js/effects.js            Plays an effect (a coloured blur flash over the screen + a text/emoji) and loads them from quiz_effects
@@ -48,6 +48,7 @@ assets/js/ui.js                 The site's own notifications: toasts, confirm di
 assets/js/quiz-import.js        Reads the quiz template CSV and validates it for the CMS Quizzes tab
 assets/templates/               TheMonkeyBusinessQuizTemplate.csv, the downloadable template for bulk-adding quiz questions
 assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)
+assets/js/loader.js             Loading screen (looping animation + "Web guy is an idiot") shown while a page's images, scripts and fonts are still loading
 assets/js/video.js              Loads the video for video.html and embeds it
 assets/js/quiz.js               Plays a quiz through the database's start_quiz / answer_question / finish_quiz functions (points = round(1000 x (1 - response time / timer x 1/2)); leaderboard shows usernames and places only)
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak

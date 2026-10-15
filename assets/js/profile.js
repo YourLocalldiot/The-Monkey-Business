@@ -20,11 +20,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     return;
   }
 
-  var result = await window.sb
-    .from('profiles')
-    .select('username, first_name, last_name, coins, streak_days')
-    .eq('id', session.user.id)
-    .single();
+  // profiles.exp comes from the rewards SQL in docs/supabase-sql.md; without
+  // it, load everything else as before.
+  var columns = 'username, first_name, last_name, coins, streak_days';
+  var result = await window.sb.from('profiles').select(columns + ', exp').eq('id', session.user.id).single();
+  if (result.error && result.error.code === '42703') {
+    result = await window.sb.from('profiles').select(columns).eq('id', session.user.id).single();
+  }
 
   if (result.error || !result.data) {
     // The exact reason (RLS blocking the row, no row existing, a
@@ -45,6 +47,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('profileUsername').textContent = '@' + p.username;
     document.getElementById('profileStreak').textContent = p.streak_days;
     document.getElementById('profileCoins').textContent = I18N.number(p.coins);
+    if (typeof p.exp === 'number') {
+      document.getElementById('profileExp').textContent = I18N.number(p.exp);
+      document.getElementById('profileExpChip').hidden = false;
+    }
     document.getElementById('profileCard').hidden = false;
   }
 

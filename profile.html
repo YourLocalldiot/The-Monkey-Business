@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="assets/js/i18n-strings.js"></script>
   <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/loader.js"></script>
   <script src="assets/js/sidebar.js"></script>
   <script>
     (function () {
@@ -113,6 +114,11 @@
               <div class="chip coin">
                 <img class="chip-icon icon-coin" src="assets/images/currency.png" alt="">
                 <span class="tnum" id="profileCoins">0</span>
+              </div>
+              <!-- Shown by assets/js/profile.js once the database has profiles.exp. -->
+              <div class="chip exp" id="profileExpChip" hidden>
+                <span class="chip-label">EXP</span>
+                <span class="tnum" id="profileExp">0</span>
               </div>
             </div>
           </section>

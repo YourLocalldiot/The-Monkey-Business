@@ -15,15 +15,26 @@
 
   // Reads a quiz with or without the columns that later SQL added (shuffle
   // switches; a picture link per question).
-  function fetchQuiz(id, withShuffle, withImage) {
+  // What finishing a quiz pays, until a moderator changes it (the same defaults as the database).
+  var REWARD_COLUMNS = 'reward_first_exp, reward_first_bananas, reward_repeat_exp, reward_repeat_bananas, ';
+  var DEFAULT_REWARDS = { first_exp: 100, first_bananas: 50, repeat_exp: 20, repeat_bananas: 10 };
+  var REWARD_MAX = 100000;
+
+  function fetchQuiz(id, withShuffle, withImage, withRewards) {
     var questions =
       'quiz_questions(id, position, prompt, prompt_vn, ' + (withImage ? 'image_url, ' : '') + 'time_limit_seconds, ' +
       'quiz_options(id, position, option_text, option_text_vn, is_correct))';
     return window.sb.from('quizzes')
-      .select(DETAIL_BASE + (withShuffle ? SHUFFLE_COLUMNS : '') + questions)
+      .select(DETAIL_BASE + (withShuffle ? SHUFFLE_COLUMNS : '') + (withRewards ? REWARD_COLUMNS : '') + questions)
       .eq('id', id)
       .single();
   }
+
+  // Uploaded pictures live in this Supabase Storage bucket (docs/supabase-sql.md);
+  // the question then stores the picture's public link, like any other link.
+  var IMAGE_BUCKET = 'quiz-images';
+  var IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+  var IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
   // A picture link has to be a plain http(s) address (the database checks the same).
   var IMAGE_LINK = /^https?:\/\/\S+$/i;
@@ -71,6 +82,8 @@
       shuffle_questions: false, shuffle_answers: false,
       shuffle_supported: true,   // unknown until the first save for a new quiz
       image_supported: true,
+      rewards_supported: true,
+      rewards: Object.assign({}, DEFAULT_REWARDS),
       questions: [blankQuestion()]
     };
   }
@@ -151,15 +164,16 @@
       // The shuffle and picture columns come from SQL in docs/pending-supabase-sql.md.
       // Until it has been run, load the quiz without them rather than not at all.
       var result;
-      var support = [true, true];   // [shuffle, picture]
-      var tiers = [[true, true], [true, false], [false, false]];
+      var support = [true, true, true];   // [shuffle, picture, rewards]
+      var tiers = [[true, true, true], [true, true, false], [true, false, false], [false, false, false]];
       for (var t = 0; t < tiers.length; t++) {
         support = tiers[t];
-        result = await fetchQuiz(id, support[0], support[1]);
+        result = await fetchQuiz(id, support[0], support[1], support[2]);
         if (!result.error || result.error.code !== '42703') break;
       }
       var shuffleSupported = support[0];
       var imageSupported = support[1];
+      var rewardsSupported = support[2];
       if (token !== editorToken) return;
 
       if (result.error) {
@@ -179,6 +193,11 @@
         shuffle_answers: !!row.shuffle_answers,
         shuffle_supported: shuffleSupported,
         image_supported: imageSupported,
+        rewards_supported: rewardsSupported,
+        rewards: rewardsSupported ? {
+          first_exp: row.reward_first_exp, first_bananas: row.reward_first_bananas,
+          repeat_exp: row.reward_repeat_exp, repeat_bananas: row.reward_repeat_bananas
+        } : Object.assign({}, DEFAULT_REWARDS),
         questions: (row.quiz_questions || []).slice().sort(byPosition).map(function (q, i) {
           return {
             id: q.id,
@@ -376,6 +395,78 @@
         });
         if (q.image_url.trim()) showImage();
 
+        // ...or upload a picture from this computer: it goes to Storage and
+        // its link is put in the field above.
+        var uploadNote = el('span', { class: 'field-hint', role: 'status', hidden: true });
+        var uploadInput = el('input', {
+          type: 'file', accept: Object.keys(IMAGE_TYPES).join(','), hidden: true, tabindex: '-1', 'aria-hidden': 'true',
+          onchange: onPicture
+        });
+        var uploadBtn = el('button', {
+          type: 'button', class: 'btn-secondary btn-small', disabled: !state.image_supported,
+          onclick: function () { uploadInput.click(); }
+        }, P.icon('upload', 14), 'Upload a picture');
+
+        function uploadStatus(text, isError) {
+          uploadNote.textContent = text || '';
+          uploadNote.hidden = !text;
+          uploadNote.classList.toggle('is-error', !!isError);
+        }
+
+        function uploadErrorText(error) {
+          var text = String((error && error.message) || '');
+          var status = Number(error && (error.statusCode || error.status));
+          if (/bucket not found/i.test(text) || status === 404) {
+            return 'Picture upload needs a database update that has not been run yet (see docs/pending-supabase-sql.md).';
+          }
+          if (/row-level security|not authorized|unauthorized|permission/i.test(text) || status === 401 || status === 403) {
+            return "You don't have permission to upload pictures.";
+          }
+          if (/too large|exceeded|maximum/i.test(text) || status === 413) return 'That picture is too big. The limit is 5 MB.';
+          if (/mime|type/i.test(text) || status === 415) return 'That kind of file can not be uploaded. Use a PNG, JPG, WebP or GIF picture.';
+          return text || 'The picture could not be uploaded.';
+        }
+
+        async function onPicture() {
+          var file = uploadInput.files && uploadInput.files[0];
+          uploadInput.value = '';   // so choosing the same file again still fires
+          if (!file) return;
+          if (!IMAGE_TYPES[file.type]) {
+            uploadStatus('Use a PNG, JPG, WebP or GIF picture.', true);
+            return;
+          }
+          if (file.size > IMAGE_MAX_BYTES) {
+            uploadStatus('That picture is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 5 MB.', true);
+            return;
+          }
+
+          uploadBtn.disabled = true;
+          uploadStatus('Uploading ' + file.name + '…');
+          var id = window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);
+          var path = id + '.' + IMAGE_TYPES[file.type];
+          var result;
+          try {
+            result = await window.sb.storage.from(IMAGE_BUCKET).upload(path, file, {
+              cacheControl: '31536000', contentType: file.type, upsert: false
+            });
+          } catch (thrown) {
+            result = { error: thrown };
+          }
+          uploadBtn.disabled = !state.image_supported;
+          if (result.error) {
+            console.error('moderator-quizzes.js: picture upload failed', result.error);
+            uploadStatus(uploadErrorText(result.error), true);
+            return;
+          }
+
+          var link = window.sb.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+          q.image_url = link;
+          imageInput.value = link;
+          showImage();
+          changed();
+          uploadStatus('Picture uploaded. Press ' + (isNew ? 'Create quiz' : 'Save changes') + ' to keep it on the question.');
+        }
+
         var optionsBox = el('div', { class: 'cms-options-list' });
         function renderOptions(focusIndex) {
           P.clear(optionsBox);
@@ -438,8 +529,9 @@
 
         body.appendChild(P.field('Question (English)', prompt));
         body.appendChild(P.field('Question (Vietnamese)', promptVn));
-        body.appendChild(P.field('Picture link (optional)', imageInput,
-          state.image_supported ? 'A link to an image (https://…). Shown above the question when the quiz is played.' : 'Needs a database update (docs/pending-supabase-sql.md).'));
+        body.appendChild(P.field('Picture (optional)', imageInput,
+          state.image_supported ? 'Paste a link to an image (https://…), or upload one below. Shown above the question when the quiz is played.' : 'Needs a database update (docs/pending-supabase-sql.md).'));
+        body.appendChild(el('div', { class: 'cms-upload' }, uploadBtn, uploadNote, uploadInput));
         body.appendChild(imageNote);
         body.appendChild(imagePreview);
         body.appendChild(P.field('Time limit (seconds)', time, 'Leave empty for the default of 30 seconds.', 'cms-q-time'));
@@ -565,6 +657,19 @@
             el('span', { class: 'field-hint', text: hint })));
       }
 
+      // ----- rewards -----
+      function rewardField(key, label) {
+        var input = el('input', {
+          type: 'number', min: 0, max: REWARD_MAX, step: 1, inputmode: 'numeric',
+          value: String(state.rewards[key]), disabled: !state.rewards_supported,
+          oninput: function () {
+            state.rewards[key] = input.value === '' ? NaN : Number(input.value);
+            changed();
+          }
+        });
+        return P.field(label, input);
+      }
+
       // ----- actions -----
       var statusEl = el('span', { class: 'cms-status', role: 'status', hidden: true });
       var saveBtn = el('button', { type: 'submit', class: 'btn-primary', text: isNew ? 'Create quiz' : 'Save changes' });
@@ -578,6 +683,12 @@
         if (!state.display_name.trim()) {
           nameInput.focus();
           return { message: 'Give the quiz a name.' };
+        }
+        if (state.rewards_supported && Object.keys(state.rewards).some(function (k) {
+          var v = state.rewards[k];
+          return !(Number.isInteger(v) && v >= 0 && v <= REWARD_MAX);
+        })) {
+          return { message: 'The EXP and banana rewards must be whole numbers from 0 to ' + REWARD_MAX + '.' };
         }
         for (var i = 0; i < state.questions.length; i++) {
           var q = state.questions[i];
@@ -663,17 +774,29 @@
         var wantsShuffle = state.shuffle_questions || state.shuffle_answers;
 
         P.status(statusEl, 'Saving…');
+        var rewardsChanged = Object.keys(DEFAULT_REWARDS).some(function (k) { return state.rewards[k] !== DEFAULT_REWARDS[k]; });
+        var droppedRewards = false;
         var result = await P.withBusy([saveBtn, deleteBtn], async function () {
           var withShuffle = Object.assign({}, args, {
             p_shuffle_questions: state.shuffle_questions,
             p_shuffle_answers: state.shuffle_answers
           });
-          var saved = await window.sb.rpc('save_quiz', withShuffle);
-          // PGRST202: the database's save_quiz doesn't take the shuffle
-          // settings yet (the quiz-shuffle SQL hasn't been run). With both
-          // switches off there is nothing to lose, so save the old way.
-          if (saved.error && saved.error.code === 'PGRST202' && !wantsShuffle) {
-            saved = await window.sb.rpc('save_quiz', args);
+          // The newest save_quiz first. PGRST202 means the database's version
+          // doesn't take that many arguments yet (the SQL in
+          // docs/pending-supabase-sql.md hasn't been run), so try the older
+          // shape, unless that would lose something the moderator set: the
+          // shuffle switches.
+          var attempts = [];
+          if (state.rewards_supported) attempts.push(Object.assign({}, withShuffle, { p_rewards: state.rewards }));
+          attempts.push(withShuffle);
+          if (!wantsShuffle) attempts.push(args);
+          var saved;
+          for (var a = 0; a < attempts.length; a++) {
+            saved = await window.sb.rpc('save_quiz', attempts[a]);
+            if (!saved.error || saved.error.code !== 'PGRST202') {
+              droppedRewards = state.rewards_supported && !('p_rewards' in attempts[a]);
+              break;
+            }
           }
           return saved;
         });
@@ -687,7 +810,9 @@
         // their ids; otherwise saving twice would add them twice.
         P.setDirty(false);
         await loadList();
-        await loadQuiz(result.data, 'Saved.', openIndexes);
+        await loadQuiz(result.data, droppedRewards && rewardsChanged
+          ? 'Saved, but the rewards were not: they need a database update (docs/pending-supabase-sql.md).'
+          : 'Saved.', openIndexes);
       }
 
       async function onDelete() {
@@ -730,6 +855,22 @@
             state.shuffle_supported ? null : el('span', { class: 'cms-hint', text: 'Needs a database update (docs/pending-supabase-sql.md)' })),
           toggleRow('shuffle_questions', 'Shuffle the questions', 'Each player gets the questions in a different, random order.'),
           toggleRow('shuffle_answers', 'Shuffle the answer choices', 'The answers of every question are shown in a random order.')),
+        el('section', { class: 'cms-section' },
+          el('div', { class: 'cms-section-head' },
+            el('div', { class: 'cms-section-title' },
+              el('h3', { text: 'Rewards' }),
+              el('span', { class: 'cms-hint', text: 'Paid when a player finishes the quiz' })),
+            state.rewards_supported ? null : el('span', { class: 'cms-hint', text: 'Needs a database update (docs/pending-supabase-sql.md)' })),
+          el('div', { class: 'cms-reward-group' },
+            el('strong', { class: 'cms-reward-title', text: 'The first time a player finishes this quiz' }),
+            el('div', { class: 'field-row' },
+              rewardField('first_exp', 'EXP'),
+              rewardField('first_bananas', 'Bananas'))),
+          el('div', { class: 'cms-reward-group' },
+            el('strong', { class: 'cms-reward-title', text: 'Every time after that' }),
+            el('div', { class: 'field-row' },
+              rewardField('repeat_exp', 'EXP'),
+              rewardField('repeat_bananas', 'Bananas')))),
         el('section', { class: 'cms-section' },
           el('div', { class: 'cms-section-head' },
             el('div', { class: 'cms-section-title' },
