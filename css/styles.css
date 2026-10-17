@@ -397,12 +397,6 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .chip-label { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--ink-45); }
 .chip-icon.icon-streak { width: 20px; height: 20px; }
 .chip-icon.icon-coin { height: 18px; width: auto; }
-.avatar-btn {
-  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--surface);
-  box-shadow: 0 0 0 1.5px var(--ink-20); padding: 0; background: var(--cream); overflow: hidden;
-  display: block;
-}
-.avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .grid { display: grid; grid-template-columns: 1fr 350px; gap: 26px; align-items: start; }
 @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
@@ -1025,14 +1019,33 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-timer-text { flex: none; min-width: 4.2em; text-align: right; font-size: 14px; font-weight: 700; }
 
 /* Question */
-.quiz-q-image { display: block; max-width: 100%; max-height: min(40vh, 340px); margin: 14px auto 0; object-fit: contain; border-radius: var(--radius-s); }
-.quiz-q-prompt { margin-top: 12px; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
-.quiz-q-hint { margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--ink-70); }
-.quiz-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+/* While playing, the box (.quiz-play-card) is cut into two equal halves:
+   .quiz-question on top, .quiz-answers below. The answer choices share the
+   lower half equally: side by side as columns on a wide screen, stacked as
+   rows on a narrow one. --n (the number of choices) is set by quiz.js. */
+.quiz-page[data-state="play"] .quiz-stage { align-items: stretch; }
+.quiz-page[data-state="play"] .quiz-view { max-width: 1100px; margin: 0 auto; flex: 1; min-height: 0; }
+.quiz-play-card {
+  flex: 1; min-height: 440px; padding: 22px;
+  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 16px;
+}
+.quiz-question {
+  min-height: 0; overflow-y: auto; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+}
+.quiz-q-image { flex: 1 1 0; min-height: 90px; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius-s); }
+.quiz-q-prompt { flex: none; max-width: 100%; font-size: clamp(20px, 2.4vw, 30px); line-height: 1.35; overflow-wrap: anywhere; }
+.quiz-q-hint { flex: none; font-size: 13px; font-weight: 700; color: var(--ink-70); }
+.quiz-answers { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.quiz-options {
+  min-height: 0; display: grid; gap: 12px;
+  grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr);
+}
 .quiz-option {
-  text-align: left; padding: 14px 16px; min-height: 52px; overflow-wrap: anywhere;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 12px 14px; min-height: 0; overflow: auto; overflow-wrap: anywhere;
   border: 1.5px solid var(--ink-20); border-radius: var(--radius-s); background: var(--paper); color: var(--ink);
-  font-size: 15px; font-weight: 600; line-height: 1.4; box-shadow: 0 3px 0 var(--ink-20);
+  font-size: clamp(15px, 1.5vw, 19px); font-weight: 600; line-height: 1.4; box-shadow: 0 3px 0 var(--ink-20);
   transition: background .15s ease, border-color .15s ease;
 }
 .quiz-option:hover:not(:disabled) { background: var(--cream-soft); border-color: var(--honey); }
@@ -1040,7 +1053,14 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-option:disabled { cursor: default; }
 .quiz-option.is-correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
 .quiz-option.is-wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
-.quiz-feedback { margin-top: 16px; padding: 10px 12px; border-radius: var(--radius-s); text-align: center; font-weight: 700; background: var(--paper); }
+/* The verdict ("Correct! +900") sits in the bottom bar, above its button. That
+   line and the button keep their room even when empty or hidden, so the
+   two halves above never change size when an answer is given. */
+.quiz-feedback { text-align: center; font-weight: 700; }
+.quiz-foot .quiz-feedback { flex: 1 1 100%; margin: 0; min-height: 1.5em; line-height: 1.5; }
+.quiz-foot .quiz-feedback[hidden] { display: block; visibility: hidden; }
+.quiz-page:not([data-state="play"]) .quiz-foot .quiz-feedback { display: none; }
+.quiz-page[data-state="play"] #actionBtn[hidden] { display: inline-block; visibility: hidden; }
 .quiz-feedback.is-correct { color: var(--good); }
 .quiz-feedback.is-wrong { color: var(--bad); }
 
@@ -1048,17 +1068,12 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-result { text-align: center; }
 .quiz-result-score { margin-top: 10px; font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1.15; }
 .quiz-reward-intro { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--cream-soft); border-radius: var(--radius-s); padding: 8px 12px; overflow-wrap: anywhere; }
-.quiz-reward-intro[hidden], .quiz-reward[hidden] { display: none; }
-.quiz-reward { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--ink-20); display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.quiz-reward-caption { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-45); }
-.quiz-reward-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.quiz-reward-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 16px; background: var(--cream); color: var(--ink); }
-.quiz-reward-pill img { height: 20px; width: auto; }
+.quiz-reward-intro[hidden] { display: none; }
 .quiz-result-place { margin-top: 6px; font-weight: 700; color: var(--ink-70); }
 
 /* Bottom bar: one to three buttons depending on the stage. */
 .quiz-foot { gap: 12px; flex-wrap: wrap; }
-.quiz-foot .video-next { flex: 1 1 140px; width: auto; max-width: 280px; }
+.quiz-foot .video-next { flex: 1 1 140px; width: auto; max-width: 280px; min-height: 50px; }
 a.video-next { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; }
 .video-next:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .quiz-home { background: transparent; color: var(--ink); border: 1.5px solid var(--ink-20); box-shadow: none; }
@@ -1076,6 +1091,12 @@ a.video-next { display: inline-flex; align-items: center; justify-content: cente
 }
 @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 25% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: .9; } }
 
+@media (max-width: 900px) {
+  /* Too narrow for the choices side by side: stack them, still sharing the lower half equally.
+     The box grows with the number of choices so each one stays readable. */
+  .quiz-options { grid-template-columns: 1fr; grid-template-rows: repeat(var(--n, 2), minmax(0, 1fr)); }
+  .quiz-play-card { min-height: calc(200px + var(--n, 4) * 120px); }
+}
 @media (max-width: 720px) {
   /* Playing: the boxes take the title's place in the bar. */
   .quiz-page[data-state="play"] .video-title, .quiz-page[data-state="result"] .video-title { display: none; }
@@ -1083,8 +1104,7 @@ a.video-next { display: inline-flex; align-items: center; justify-content: cente
 @media (max-width: 560px) {
   .quiz-card { padding: 18px; }
   .quiz-name { font-size: 22px; }
-  .quiz-q-prompt { font-size: 19px; }
-  .quiz-options { grid-template-columns: 1fr; }
+  .quiz-play-card { padding: 16px; }
   .quiz-result-score { font-size: 32px; }
 }
 @media (max-width: 420px) {

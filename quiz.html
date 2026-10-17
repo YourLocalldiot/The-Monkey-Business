@@ -76,12 +76,18 @@
         <div class="quiz-timer-track"><div class="quiz-timer-fill" id="timerFill"></div></div>
         <span class="quiz-timer-text tnum" id="timerText"></span>
       </div>
-      <div class="card quiz-card">
-        <img class="quiz-q-image" id="qImage" alt="" hidden referrerpolicy="no-referrer">
-        <h2 class="quiz-q-prompt" id="qPrompt"></h2>
-        <p class="quiz-q-hint" id="qHint" data-i18n="quiz.selectAll" hidden>Select all that apply</p>
-        <div class="quiz-options" id="qOptions"></div>
-        <p class="quiz-feedback" id="qFeedback" role="status" hidden></p>
+      <!-- The whole box is split into two equal halves: the question on top
+           (its picture, then the text), the answer choices below, which are
+           shared out equally between them. -->
+      <div class="card quiz-card quiz-play-card">
+        <div class="quiz-question">
+          <img class="quiz-q-image" id="qImage" alt="" hidden referrerpolicy="no-referrer">
+          <h2 class="quiz-q-prompt" id="qPrompt"></h2>
+          <p class="quiz-q-hint" id="qHint" data-i18n="quiz.selectAll" hidden>Select all that apply</p>
+        </div>
+        <div class="quiz-answers">
+          <div class="quiz-options" id="qOptions"></div>
+        </div>
       </div>
     </section>
 
@@ -91,10 +97,6 @@
         <h2 class="quiz-name" data-i18n="quiz.result.title">Quiz complete!</h2>
         <p class="quiz-result-score tnum" id="resultScore"></p>
         <p class="quiz-result-place" id="resultPlace"></p>
-        <div class="quiz-reward" id="resultReward" hidden>
-          <p class="quiz-reward-caption" id="resultRewardCaption"></p>
-          <div class="quiz-reward-pills" id="resultRewardPills"></div>
-        </div>
       </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
@@ -106,6 +108,7 @@
 
   <!-- Bottom bar: its button depends on the stage. -->
   <footer class="video-foot quiz-foot">
+    <p class="quiz-feedback" id="qFeedback" role="status" hidden></p>
     <button type="button" class="video-next" id="startBtn" data-i18n="quiz.start" hidden>Start quiz</button>
     <button type="button" class="video-next" id="actionBtn" hidden></button>
     <button type="button" class="video-next" id="againBtn" data-i18n="quiz.again" hidden>Play again</button>

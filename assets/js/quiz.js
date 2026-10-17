@@ -21,8 +21,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     qImage: $('qImage'), qPrompt: $('qPrompt'), qHint: $('qHint'),
     qOptions: $('qOptions'), qFeedback: $('qFeedback'),
     resultScore: $('resultScore'), resultPlace: $('resultPlace'),
-    introReward: $('introReward'), resultReward: $('resultReward'),
-    resultRewardCaption: $('resultRewardCaption'), resultRewardPills: $('resultRewardPills'),
+    introReward: $('introReward'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
   };
@@ -296,6 +295,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     clear(el.qOptions);
+    // The choices share the lower half of the box equally (see styles.css).
+    el.play.style.setProperty('--n', q.options.length);
     q.options.forEach(function (option) {
       var button = document.createElement('button');
       button.type = 'button';
@@ -433,29 +434,20 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // ---------- result ----------
 
-  // What this finish paid: "+100 EXP" and "+50 bananas" (not shown when it
-  // paid nothing, or when the database doesn't pay rewards yet).
-  function showReward(paid) {
-    clear(el.resultRewardPills);
-    var any = paid.exp > 0 || paid.bananas > 0;
-    el.resultReward.hidden = !any;
-    if (!any) return;
-    el.resultRewardCaption.textContent = I18N.t(paid.first ? 'quiz.reward.captionFirst' : 'quiz.reward.captionRepeat');
-
-    function pill(text, icon) {
-      var span = document.createElement('span');
-      span.className = 'quiz-reward-pill';
-      if (icon) {
-        var img = document.createElement('img');
-        img.src = icon;
-        img.alt = '';
-        span.appendChild(img);
-      }
-      span.appendChild(document.createTextNode(text));
-      el.resultRewardPills.appendChild(span);
-    }
-    if (paid.exp > 0) pill(I18N.t('quiz.reward.exp', { exp: I18N.number(paid.exp) }), null);
-    if (paid.bananas > 0) pill(I18N.t('quiz.reward.bananas', { bananas: I18N.number(paid.bananas) }), 'assets/images/currency.png');
+  // Tells the player what finishing paid, in a notification: "You earned 120
+  // EXP and 60 bananas!" Says nothing when it paid nothing (the quiz has no
+  // rewards set, or the database doesn't pay them yet).
+  function notifyReward(paid) {
+    var exp = Number(paid.exp) || 0;
+    var bananas = Number(paid.bananas) || 0;
+    if (exp <= 0 && bananas <= 0) return;
+    var vars = { exp: I18N.number(exp), bananas: I18N.number(bananas) };
+    var key = exp > 0 && bananas > 0 ? 'quiz.reward.toastBoth' : exp > 0 ? 'quiz.reward.toastExp' : 'quiz.reward.toastBananas';
+    window.UI.toast(I18N.t(key, vars), {
+      kind: 'success',
+      title: I18N.t(paid.first ? 'quiz.reward.captionFirst' : 'quiz.reward.captionRepeat'),
+      duration: 9000
+    });
   }
 
   async function finish() {
@@ -475,7 +467,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     setProgress(run.questions.length, run.questions.length);
     el.resultScore.textContent = I18N.t('quiz.result.score', { points: I18N.number(done.data.score) });
     el.resultPlace.textContent = I18N.t('quiz.result.place', { place: done.data.place, total: done.data.total });
-    showReward(done.data);
+    notifyReward(done.data);
     loadBoard('resultBoard', 'resultBoardEmpty');
     window.scrollTo(0, 0);
   }
