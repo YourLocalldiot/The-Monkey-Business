@@ -270,6 +270,10 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .empty-state-title { font-size: 26px; text-wrap: balance; }
 .empty-state-sub { font-size: 14.5px; color: var(--ink-70); margin-top: 10px; }
 .empty-state .btn-primary { margin-top: 24px; }
+.empty-state-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
+.empty-state-actions .btn-primary { margin-top: 0; }
+.empty-state-actions a { text-decoration: none; justify-content: center; }
+.empty-state[hidden] { display: none; }
 
 /* ---------- Playlists (expandable rows) ---------- */
 .playlist-row {
@@ -944,6 +948,15 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
   transition: background .15s ease;
 }
 .video-close:hover { background: var(--paper); }
+.quiz-lang {
+  width: 40px; height: 40px; flex: none; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink-20);
+  font-size: 12.5px; font-weight: 700; letter-spacing: .03em;
+  transition: background .15s ease;
+}
+.quiz-lang:hover { background: var(--cream-soft); }
+.quiz-lang[hidden] { display: none; }
 .video-title { flex: 1; min-width: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .video-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 20px; }
 /* A 16:9 box as large as fits between the two bars, never wider than the page. */
@@ -1124,6 +1137,7 @@ a.video-next { display: inline-flex; align-items: center; justify-content: cente
 }
 @media (max-width: 420px) {
   .video-bar { gap: 10px; }
+  .quiz-page .video-bar { padding-left: 12px; padding-right: 12px; }
   .quiz-stats { gap: 6px; }
   .quiz-stat { min-width: 56px; padding: 4px 6px; }
   .quiz-stat-value { font-size: 15px; }

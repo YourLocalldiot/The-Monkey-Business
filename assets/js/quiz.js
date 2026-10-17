@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     introReward: $('introReward'), introGuest: $('introGuest'),
     guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
+    lang: $('langBtn'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
   };
 
@@ -227,6 +228,28 @@ document.addEventListener('DOMContentLoaded', async function () {
   showNote('');
   setState('intro');
   loadBoard('introBoard', 'introBoardEmpty');
+
+  // Guests have no Profile page to pick a language on, so the top bar has a
+  // switch: it shows the other language's code and name. Changing language
+  // reloads the page, which would throw away a quiz in progress, so that asks first.
+  if (isGuest) {
+    var other = I18N.lang === 'vi' ? 'en' : 'vi';
+    el.lang.textContent = other.toUpperCase();
+    el.lang.title = el.lang.ariaLabel = other === 'vi' ? 'Tiếng Việt' : 'English';
+    el.lang.hidden = false;
+    el.lang.addEventListener('click', async function () {
+      if (page.dataset.state === 'play') {
+        var change = await window.UI.confirm(I18N.t('quiz.lang.text'), {
+          title: I18N.t('quiz.lang.title'),
+          confirmLabel: I18N.t('quiz.lang.confirm'),
+          cancelLabel: I18N.t('quiz.leave.stay'),
+          danger: true
+        });
+        if (!change) return;
+      }
+      I18N.setLang(other);
+    });
+  }
 
   // ---------- leaving ----------
 

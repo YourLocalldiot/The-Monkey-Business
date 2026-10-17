@@ -6,7 +6,8 @@
 // opened, it offers the user's other playlists, or a nudge to find more
 // when they only have one, plus a link to Browse playlists. Anyone with no
 // playlists (including visitors who aren't signed in) sees the original
-// "You currently have no playlists" box instead.
+// "You currently have no playlists" box instead, and visitors who aren't
+// signed in see an invitation to create an account or log in.
 //
 // Under the box, the current playlist's videos and quizzes ("pieces") are
 // drawn as round buttons along a path that curves like Duolingo's lesson
@@ -51,6 +52,7 @@ var PIECE_ICONS = {
 document.addEventListener('DOMContentLoaded', async function () {
   var box = document.getElementById('currentPlaylist');
   var empty = document.getElementById('noPlaylists');
+  var guestPrompt = document.getElementById('guestPrompt');
   if (!box || !empty) return;
 
   var nameEl = document.getElementById('currentPlaylistName');
@@ -68,7 +70,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   function showEmpty() {
     box.hidden = true;
     if (pathEl) pathEl.hidden = true;
+    if (guestPrompt) guestPrompt.hidden = true;
     empty.hidden = false;
+  }
+
+  // Nobody is signed in: there are no playlists to show, so ask them to join.
+  function showGuest() {
+    box.hidden = true;
+    if (pathEl) pathEl.hidden = true;
+    empty.hidden = true;
+    if (guestPrompt) guestPrompt.hidden = false;
+    else empty.hidden = false;
   }
 
   // ---- the path of pieces ----
@@ -242,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   var session = (await window.sb.auth.getSession()).data.session;
   if (!session) {
-    showEmpty();
+    showGuest();
     return;
   }
 

@@ -133,6 +133,16 @@
                curving path by assets/js/home.js. -->
           <section class="path" id="playlistPath" aria-label="Playlist contents" data-i18n-aria-label="home.path.label" hidden></section>
 
+          <!-- Shown by assets/js/home.js to visitors who aren't signed in. -->
+          <section class="card empty-state rise-in" id="guestPrompt" hidden>
+            <h2 class="empty-state-title" data-i18n="home.guest.title">Create an account or log in</h2>
+            <p class="empty-state-sub" data-i18n="home.guest.sub">Make a free account to follow playlists, play quizzes and earn EXP and bananas.</p>
+            <div class="empty-state-actions">
+              <a class="btn-primary" href="signup.html" data-i18n="home.guest.create">Create account</a>
+              <a class="btn-secondary" href="login.html" data-i18n="auth.login">Log in</a>
+            </div>
+          </section>
+
           <section class="card empty-state rise-in" id="noPlaylists" hidden>
             <h2 class="empty-state-title" data-i18n="home.empty.title">You currently have no playlists.</h2>
             <p class="empty-state-sub" data-i18n="home.empty.sub">Go to playlists to check more playlists.</p>
