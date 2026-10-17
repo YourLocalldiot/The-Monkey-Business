@@ -26,6 +26,12 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 - **Until it's run:** finishing a quiz pays nothing, the CMS Rewards fields are disabled, and the Profile page shows no EXP.
 - **Added:** 2026-10-15.
 
+### `quizzes: anonymous play + claiming rewards`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz: anonymous play, and claiming rewards". Run it **after** `quizzes: rewards + exp` and `quiz_effects` (and don't re-run the older quiz-player or `save_quiz` queries afterwards).
+- **Why it's needed:** the **Anonymous** quiz setting (guests play without an account as Guest1, Guest2, ...; no EXP or bananas), the **Claim rewards!** button (finishing now adds to a pending reward that the button pays out), and the third effect kind (reward, with the banana flash). It replaces the quiz-player functions (`get_quiz_intro`, `start_quiz`, `answer_question`, `finish_quiz`, `get_quiz_leaderboard`, `quiz_rank`, `save_quiz`) and adds `claim_quiz_reward`.
+- **Until it's run:** signed-in players can still play as before (the older functions pay straight away; Claim rewards! just shows what was paid). Guests can't play, the CMS Anonymous switch is disabled, and rewards can't be held back for claiming.
+- **Added:** 2026-10-17.
+
 ## Applied
 
 As of the comparison above (plus what you confirmed on 2026-10-14), every other snippet in `supabase-sql.md` has been applied:

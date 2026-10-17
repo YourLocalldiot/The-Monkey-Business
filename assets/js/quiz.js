@@ -7,6 +7,15 @@
 // correct answers, each answer is graded there (points = round(1000 x (1 -
 // response time / question timer x 1/2)), and the leaderboard only hands out
 // usernames and places.
+//
+// Guests: a quiz marked Anonymous in the CMS can be played without an account.
+// The browser keeps a random guest id and sends it with every call; the
+// database names the guest "Guest<n>". Guests earn no EXP or bananas, and at
+// the end are invited to create an account.
+//
+// Rewards: for a signed-in player, finishing leaves EXP and bananas waiting;
+// the "Claim rewards!" button pays them (with the reward effect, then a
+// notification of what was received).
 document.addEventListener('DOMContentLoaded', async function () {
   var $ = function (id) { return document.getElementById(id); };
   var page = $('quizPage');
@@ -21,8 +30,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     qImage: $('qImage'), qPrompt: $('qPrompt'), qHint: $('qHint'),
     qOptions: $('qOptions'), qFeedback: $('qFeedback'),
     resultScore: $('resultScore'), resultPlace: $('resultPlace'),
-    introReward: $('introReward'),
-    start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'),
+    introReward: $('introReward'), introGuest: $('introGuest'),
+    guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'),
+    start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
   };
 
@@ -30,6 +40,36 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   var quizId = Number(new URLSearchParams(window.location.search).get('id'));
   var run = null;   // the run in progress: questions, index, score ...
+  var isGuest = false;
+  var guestName = '';
+
+  // The random id a guest's browser keeps (the same one for every quiz).
+  function makeId() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+  var memoryGuestId = null;
+  function guestId() {
+    try {
+      var id = localStorage.getItem('tmbGuestId');
+      if (!/^[0-9a-f-]{36}$/i.test(id || '')) {
+        id = makeId();
+        localStorage.setItem('tmbGuestId', id);
+      }
+      return id;
+    } catch (e) {
+      return memoryGuestId || (memoryGuestId = makeId());
+    }
+  }
+
+  // Calls a database function; a guest's calls carry the guest id.
+  function rpc(name, args) {
+    if (isGuest) args = Object.assign({ p_guest_id: guestId() }, args);
+    return window.sb.rpc(name, args);
+  }
 
   // ---------- small helpers ----------
 
@@ -44,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     el.start.hidden = state !== 'intro';
     el.again.hidden = state !== 'result';
     el.home.hidden = state !== 'result';
+    el.claim.hidden = true;
     if (state !== 'play') el.action.hidden = true;
   }
 
@@ -125,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   async function loadBoard(listId, emptyId) {
     var list = $(listId), empty = $(emptyId);
-    var result = await window.sb.rpc('get_quiz_leaderboard', { p_quiz_id: quizId });
+    var result = await rpc('get_quiz_leaderboard', { p_quiz_id: quizId });
     if (result.error) {
       console.error('quiz.js: could not load the leaderboard', result.error);
       list.hidden = true;
@@ -146,13 +187,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     showNote(I18N.t('err.noService'), true);
     return;
   }
+  // Nobody signed in: they may still play a quiz that is marked Anonymous.
   var session = (await window.sb.auth.getSession()).data.session;
-  if (!session) {
+  isGuest = !session;
+
+  var intro = await rpc('get_quiz_intro', { p_quiz_id: quizId });
+  if (intro.error && intro.error.code === '28000') {
+    // this quiz needs an account
     window.location.href = 'login.html';
     return;
   }
-
-  var intro = await window.sb.rpc('get_quiz_intro', { p_quiz_id: quizId });
   if (intro.error || !intro.data) {
     console.error('quiz.js: could not load the quiz', intro.error);
     showNote(failText(intro.error, 'quiz.loadFail'), true);
@@ -171,7 +215,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     plural(intro.data.player_count, 'quiz.players.one', 'quiz.players.many');
 
   // What finishing would earn this player right now (the first time, or a replay).
-  var reward = intro.data.reward;
+  var reward = isGuest ? null : intro.data.reward;
+  el.introGuest.hidden = !isGuest;
   if (reward && (reward.exp > 0 || reward.bananas > 0)) {
     el.introReward.textContent = I18N.t(reward.first ? 'quiz.reward.introFirst' : 'quiz.reward.introRepeat', {
       exp: I18N.number(reward.exp), bananas: I18N.number(reward.bananas)
@@ -209,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     el.countdown.hidden = false;
 
     // Fetch the questions (and the effects) while the countdown runs.
-    var loading = window.sb.rpc('start_quiz', { p_quiz_id: quizId });
+    var loading = rpc('start_quiz', { p_quiz_id: quizId });
     var effectsReady = window.Effects.load();
 
     for (var n = COUNTDOWN_FROM; n >= 1; n--) {
@@ -259,6 +304,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       pending: null      // an answer that is being sent / that failed to send
     };
     showNote('');
+    guestName = data.guest_name || '';
     el.title.textContent = quizName;
     setState('play');
     setStats(run.place, run.total, 0);
@@ -380,7 +426,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   async function deliver() {
     var p = run.pending;
     el.qFeedback.hidden = true;
-    var result = await window.sb.rpc('answer_question', {
+    var result = await rpc('answer_question', {
       p_quiz_id: quizId,
       p_question_id: p.question.id,
       p_option_ids: p.ids,
@@ -434,9 +480,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // ---------- result ----------
 
-  // Tells the player what finishing paid, in a notification: "You earned 120
-  // EXP and 60 bananas!" Says nothing when it paid nothing (the quiz has no
-  // rewards set, or the database doesn't pay them yet).
+  // Tells the player what they received, in a notification: "You earned 120
+  // EXP and 60 bananas!" Says nothing when there is nothing to tell.
   function notifyReward(paid) {
     var exp = Number(paid.exp) || 0;
     var bananas = Number(paid.bananas) || 0;
@@ -452,7 +497,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   async function finish() {
     el.action.disabled = true;
-    var done = await window.sb.rpc('finish_quiz', { p_quiz_id: quizId });
+    var done = await rpc('finish_quiz', { p_quiz_id: quizId });
     if (done.error || !done.data) {
       console.error('quiz.js: could not finish the quiz', done.error);
       el.qFeedback.textContent = I18N.t('quiz.finishFail');
@@ -467,8 +512,54 @@ document.addEventListener('DOMContentLoaded', async function () {
     setProgress(run.questions.length, run.questions.length);
     el.resultScore.textContent = I18N.t('quiz.result.score', { points: I18N.number(done.data.score) });
     el.resultPlace.textContent = I18N.t('quiz.result.place', { place: done.data.place, total: done.data.total });
-    notifyReward(done.data);
+    if (isGuest) {
+      // Guests earn nothing: invite them to make an account instead.
+      el.guestCard.hidden = false;
+      el.guestPlayedAs.textContent = guestName ? I18N.t('quiz.guest.playedAs', { name: guestName }) : '';
+      el.guestPlayedAs.hidden = !guestName;
+    } else {
+      offerClaim({
+        exp: Number(done.data.exp) || 0,
+        bananas: Number(done.data.bananas) || 0,
+        first: !!done.data.first
+      });
+    }
     loadBoard('resultBoard', 'resultBoardEmpty');
     window.scrollTo(0, 0);
+  }
+
+  // When there is something to claim, "Claim rewards!" takes the place of
+  // "Play again" and "Back to Home" until it has been pressed. When there is
+  // nothing, the usual two buttons stay.
+  function offerClaim(waiting) {
+    if (waiting.exp <= 0 && waiting.bananas <= 0) return;
+    el.again.hidden = true;
+    el.home.hidden = true;
+    el.claim.hidden = false;
+    el.claim.disabled = false;
+    el.claim.onclick = async function () {
+      el.claim.disabled = true;
+      var result = await window.sb.rpc('claim_quiz_reward', { p_quiz_id: quizId });
+      var paid = waiting;
+      if (result.error && result.error.code === 'PGRST202') {
+        // The database doesn't have the claim function yet: its older
+        // finish_quiz already paid, so there is nothing left to do but say so.
+      } else if (result.error || !result.data) {
+        console.error('quiz.js: could not claim the rewards', result.error);
+        window.UI.toast(I18N.t('quiz.claimFail'), { kind: 'error' });
+        el.claim.disabled = false;
+        return;
+      } else {
+        paid = { exp: Number(result.data.exp) || 0, bananas: Number(result.data.bananas) || 0, first: waiting.first };
+      }
+
+      // the reward effect first, then the notification of what was received
+      var seconds = window.Effects.play(window.Effects.pick('reward'));
+      el.claim.hidden = true;
+      el.again.hidden = false;
+      el.home.hidden = false;
+      setTimeout(function () { notifyReward(paid); }, seconds * 1000);
+    };
+    el.claim.focus();
   }
 });

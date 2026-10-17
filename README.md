@@ -50,7 +50,7 @@ assets/templates/               TheMonkeyBusinessQuizTemplate.csv, the downloada
 assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)
 assets/js/loader.js             Loading screen (looping animation + "Web guy is an idiot") shown while a page's images, scripts and fonts are still loading
 assets/js/video.js              Loads the video for video.html and embeds it
-assets/js/quiz.js               Plays a quiz through the database's start_quiz / answer_question / finish_quiz functions (points = round(1000 x (1 - response time / timer x 1/2)); leaderboard shows usernames and places only)
+assets/js/quiz.js               Plays a quiz (signed in, or as a guest on an Anonymous quiz) through the database's start_quiz / answer_question / finish_quiz / claim_quiz_reward functions (points = round(1000 x (1 - response time / timer x 1/2)); leaderboard shows usernames and places only)
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
 assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"

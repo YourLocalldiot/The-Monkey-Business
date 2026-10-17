@@ -1,5 +1,6 @@
 // CMS → Effects tab: the flashes that play in a quiz when a player picks a
-// right (Correct) or a wrong (Incorrect) answer. Each effect has a kind, a
+// right (Correct) or a wrong (Incorrect) answer, or claims a quiz's rewards
+// (Reward). Each effect has a kind, a
 // text or emoji, a flash colour and how long the flash lasts. When there are
 // several of a kind, the quiz picks one at random. The table is quiz_effects
 // (docs/supabase-sql.md); moderators write it directly, Row Level Security
@@ -8,7 +9,8 @@
   var P = window.CMS;
   var el = P.el;
 
-  var KINDS = { correct: 'Correct effect', incorrect: 'Incorrect effect' };
+  var KINDS = { correct: 'Correct effect', incorrect: 'Incorrect effect', reward: 'Reward effect' };
+  var KIND_ORDER = { correct: 0, incorrect: 1, reward: 2 };
   var HEX = /^#[0-9a-f]{6}$/i;
 
   function blankEffect() {
@@ -22,7 +24,7 @@
   P.register('effects', function (pane) {
     var md = P.masterDetail(pane, {
       searchPlaceholder: 'Search effects',
-      searchLabel: 'Search effects by text or by type (correct / incorrect)',
+      searchLabel: 'Search effects by text or by type (correct / incorrect / reward)',
       newLabel: 'New',
       onSearch: renderList,
       onNew: function () {
@@ -70,7 +72,7 @@
         return;
       }
       effects = (result.data || []).slice().sort(function (a, b) {
-        return (a.kind === b.kind ? 0 : a.kind === 'correct' ? -1 : 1) || (a.id - b.id);
+        return (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || (a.id - b.id);
       });
       renderList();
     }
@@ -100,7 +102,8 @@
         onchange: function () { state.kind = kind.value; changed(); }
       },
         el('option', { value: 'correct', text: KINDS.correct }),
-        el('option', { value: 'incorrect', text: KINDS.incorrect }));
+        el('option', { value: 'incorrect', text: KINDS.incorrect }),
+        el('option', { value: 'reward', text: KINDS.reward }));
       kind.value = state.kind;
 
       var content = el('input', {
@@ -210,7 +213,7 @@
       }
 
       md.editor.appendChild(el('h2', { class: 'cms-editor-title', text: isNew ? 'New effect' : 'Edit effect' }));
-      md.editor.appendChild(el('p', { class: 'cms-editor-sub', text: 'Plays on the whole screen in a quiz each time a player picks a right (correct) or a wrong (incorrect) answer. With several effects of the same type, one is picked at random.' }));
+      md.editor.appendChild(el('p', { class: 'cms-editor-sub', text: 'Plays on the whole screen in a quiz: a Correct or Incorrect effect each time a player picks a right or a wrong answer, a Reward effect when they press Claim rewards (a banana is used if there is none). With several effects of the same type, one is picked at random.' }));
       md.editor.appendChild(el('form', { class: 'cms-form', novalidate: true, onsubmit: onSubmit },
         el('div', { class: 'field-row' },
           P.field('Type', kind),

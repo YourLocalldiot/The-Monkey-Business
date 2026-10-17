@@ -771,6 +771,13 @@ a.btn-small { text-decoration: none; }
 .cms-q-tools { margin-left: auto; display: flex; gap: 6px; }
 .cms-q .field input, .cms-q .field textarea { background: var(--surface); }
 .cms-q-time { max-width: 230px; }
+.cms-share { display: flex; flex-direction: column; gap: 6px; }
+.cms-share-label { font-size: 13px; font-weight: 700; color: var(--ink-70); }
+.cms-share-box { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cms-share-box input {
+  flex: 1 1 220px; min-width: 0; font-family: var(--font-body); font-size: 14px; padding: 9px 12px;
+  border-radius: var(--radius-s); border: 1.5px solid var(--ink-20); background: var(--paper); color: var(--ink);
+}
 .cms-reward-group { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1.5px solid var(--ink-20); border-radius: var(--radius-s); background: var(--paper); }
 .cms-reward-title { font-size: 14px; }
 .cms-reward-group .field input { background: var(--surface); }
@@ -1067,6 +1074,14 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 /* Result */
 .quiz-result { text-align: center; }
 .quiz-result-score { margin-top: 10px; font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1.15; }
+.quiz-guest-note { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--sky-soft); border-radius: var(--radius-s); padding: 8px 12px; overflow-wrap: anywhere; }
+.quiz-guest-note[hidden], .quiz-guest-card[hidden], .quiz-guest-card .quiz-meta[hidden] { display: none; }
+.quiz-guest-card { text-align: center; background: var(--cream-soft); border-color: var(--honey); }
+.quiz-guest-actions { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.quiz-guest-actions .btn-primary { justify-content: center; min-width: min(100%, 240px); }
+.quiz-guest-login { font-size: 14px; font-weight: 700; color: var(--ink-70); text-decoration: underline; text-underline-offset: 3px; }
+.quiz-guest-login:hover { color: var(--ink); }
+.quiz-claim { background: var(--honey); color: var(--honey-ink); }
 .quiz-reward-intro { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--cream-soft); border-radius: var(--radius-s); padding: 8px 12px; overflow-wrap: anywhere; }
 .quiz-reward-intro[hidden] { display: none; }
 .quiz-result-place { margin-top: 6px; font-weight: 700; color: var(--ink-70); }

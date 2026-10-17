@@ -2,7 +2,8 @@
 // blurred cloud billows across the whole screen and a text or emoji pops up in
 // the middle. Moderators manage the effects in CMS > Effects (the quiz_effects
 // table, docs/supabase-sql.md). Each effect has a kind ('correct' or
-// 'incorrect'), the text/emoji, the flash colour (#rrggbb) and how long it
+// 'incorrect' for a right or wrong pick, 'reward' for claiming a quiz's
+// rewards), the text/emoji, the flash colour (#rrggbb) and how long it
 // lasts, in seconds. When there are several of a kind, one is picked at random.
 //
 //   await Effects.load()            fetch the effects once (falls back to the defaults below)
@@ -14,7 +15,9 @@
   // Used until the quiz_effects table exists (or when it can't be read).
   var DEFAULTS = [
     { kind: 'correct', content: '✅', color: '#3fb56a', duration_seconds: 0.8 },
-    { kind: 'incorrect', content: '💩', color: '#7b4a2a', duration_seconds: 1.5 }
+    { kind: 'incorrect', content: '💩', color: '#7b4a2a', duration_seconds: 1.5 },
+    // the theme's honey yellow
+    { kind: 'reward', content: '🍌', color: '#e79b34', duration_seconds: 1.2 }
   ];
 
   var loaded = null;   // the list, once fetched
@@ -33,12 +36,17 @@
   }
 
   function pick(kind) {
-    var list = (loaded || DEFAULTS).filter(function (effect) { return effect.kind === kind; });
+    function ofKind(list) { return list.filter(function (effect) { return effect.kind === kind; }); }
+    var list = ofKind(loaded || DEFAULTS);
+    // Claiming rewards always flashes something: the built-in banana when no
+    // Reward effect is stored (before the reward SQL ran, or if all were deleted).
+    if (!list.length && kind === 'reward') list = ofKind(DEFAULTS);
     return list.length ? list[Math.floor(Math.random() * list.length)] : null;
   }
 
+  // Plays an effect and returns how long it lasts, in seconds (0 if there was none).
   function play(effect) {
-    if (!effect) return;
+    if (!effect) return 0;
     var seconds = Math.min(10, Math.max(0.2, Number(effect.duration_seconds) || 1));
     var color = /^#[0-9a-f]{6}$/i.test(effect.color || '') ? effect.color : '#888888';
 
@@ -59,6 +67,7 @@
     layer.appendChild(text);
     document.body.appendChild(layer);
     setTimeout(function () { if (layer.parentNode) layer.parentNode.removeChild(layer); }, seconds * 1000 + 150);
+    return seconds;
   }
 
   window.Effects = { DEFAULTS: DEFAULTS, load: load, pick: pick, play: play };

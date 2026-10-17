@@ -62,6 +62,7 @@
         <p class="quiz-desc" id="introDesc"></p>
         <p class="quiz-meta" id="introMeta"></p>
         <p class="quiz-reward-intro" id="introReward" hidden></p>
+        <p class="quiz-guest-note" id="introGuest" data-i18n="quiz.guest.note" hidden>You're playing as a guest. Create an account to earn EXP and bananas.</p>
       </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
@@ -98,6 +99,16 @@
         <p class="quiz-result-score tnum" id="resultScore"></p>
         <p class="quiz-result-place" id="resultPlace"></p>
       </div>
+      <!-- Only for guests: an invitation to make an account. -->
+      <div class="card quiz-card quiz-guest-card" id="guestCard" hidden>
+        <h2 class="quiz-name" data-i18n="quiz.guest.title">Enjoyed the quiz?</h2>
+        <p class="quiz-desc" data-i18n="quiz.guest.text">Create an account to earn EXP and bananas, and to keep your place on the leaderboards.</p>
+        <p class="quiz-meta" id="guestPlayedAs"></p>
+        <div class="quiz-guest-actions">
+          <a class="btn-primary" id="guestCreate" href="signup.html" data-i18n="quiz.guest.create">Create account</a>
+          <a class="quiz-guest-login" href="login.html" data-i18n="quiz.guest.login">Already have an account? Log in</a>
+        </div>
+      </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
         <ol class="quiz-board" id="resultBoard"></ol>
@@ -111,6 +122,7 @@
     <p class="quiz-feedback" id="qFeedback" role="status" hidden></p>
     <button type="button" class="video-next" id="startBtn" data-i18n="quiz.start" hidden>Start quiz</button>
     <button type="button" class="video-next" id="actionBtn" hidden></button>
+    <button type="button" class="video-next quiz-claim" id="claimBtn" data-i18n="quiz.claim" hidden>Claim rewards!</button>
     <button type="button" class="video-next" id="againBtn" data-i18n="quiz.again" hidden>Play again</button>
     <a class="video-next quiz-home" id="homeLink" href="index.html" data-i18n="quiz.back" hidden>Back to Home</a>
   </footer>

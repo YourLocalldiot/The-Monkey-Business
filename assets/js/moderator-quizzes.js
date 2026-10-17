@@ -20,12 +20,14 @@
   var DEFAULT_REWARDS = { first_exp: 100, first_bananas: 50, repeat_exp: 20, repeat_bananas: 10 };
   var REWARD_MAX = 100000;
 
-  function fetchQuiz(id, withShuffle, withImage, withRewards) {
+  var GUEST_COLUMNS = 'allow_guests, ';
+
+  function fetchQuiz(id, withShuffle, withImage, withRewards, withGuests) {
     var questions =
       'quiz_questions(id, position, prompt, prompt_vn, ' + (withImage ? 'image_url, ' : '') + 'time_limit_seconds, ' +
       'quiz_options(id, position, option_text, option_text_vn, is_correct))';
     return window.sb.from('quizzes')
-      .select(DETAIL_BASE + (withShuffle ? SHUFFLE_COLUMNS : '') + (withRewards ? REWARD_COLUMNS : '') + questions)
+      .select(DETAIL_BASE + (withShuffle ? SHUFFLE_COLUMNS : '') + (withRewards ? REWARD_COLUMNS : '') + (withGuests ? GUEST_COLUMNS : '') + questions)
       .eq('id', id)
       .single();
   }
@@ -84,6 +86,8 @@
       image_supported: true,
       rewards_supported: true,
       rewards: Object.assign({}, DEFAULT_REWARDS),
+      allow_guests: false,
+      guests_supported: true,
       questions: [blankQuestion()]
     };
   }
@@ -164,16 +168,17 @@
       // The shuffle and picture columns come from SQL in docs/pending-supabase-sql.md.
       // Until it has been run, load the quiz without them rather than not at all.
       var result;
-      var support = [true, true, true];   // [shuffle, picture, rewards]
-      var tiers = [[true, true, true], [true, true, false], [true, false, false], [false, false, false]];
+      var support = [true, true, true, true];   // [shuffle, picture, rewards, anonymous]
+      var tiers = [[true, true, true, true], [true, true, true, false], [true, true, false, false], [true, false, false, false], [false, false, false, false]];
       for (var t = 0; t < tiers.length; t++) {
         support = tiers[t];
-        result = await fetchQuiz(id, support[0], support[1], support[2]);
+        result = await fetchQuiz(id, support[0], support[1], support[2], support[3]);
         if (!result.error || result.error.code !== '42703') break;
       }
       var shuffleSupported = support[0];
       var imageSupported = support[1];
       var rewardsSupported = support[2];
+      var guestsSupported = support[3];
       if (token !== editorToken) return;
 
       if (result.error) {
@@ -194,6 +199,8 @@
         shuffle_supported: shuffleSupported,
         image_supported: imageSupported,
         rewards_supported: rewardsSupported,
+        allow_guests: !!row.allow_guests,
+        guests_supported: guestsSupported,
         rewards: rewardsSupported ? {
           first_exp: row.reward_first_exp, first_bananas: row.reward_first_bananas,
           repeat_exp: row.reward_repeat_exp, repeat_bananas: row.reward_repeat_bananas
@@ -221,6 +228,9 @@
 
       var isNew = state.id === null;
       var token = editorToken;
+      // As loaded, to tell which settings the moderator changed.
+      var initialGuests = !!state.allow_guests;
+      var initialRewards = Object.assign({}, state.rewards);
       function changed() { P.setDirty(true, function () { showPlaceholder(); }); }
 
       var nameInput = el('input', {
@@ -642,9 +652,9 @@
       }
       refreshOrderHint();
 
-      function toggleRow(key, title, hint) {
+      function toggleRow(key, title, hint, supportedKey) {
         var box = el('input', {
-          type: 'checkbox', checked: !!state[key], disabled: !state.shuffle_supported,
+          type: 'checkbox', checked: !!state[key], disabled: !state[supportedKey || 'shuffle_supported'],
           onchange: function () {
             state[key] = box.checked;
             refreshOrderHint();
@@ -655,6 +665,30 @@
           el('span', { class: 'cms-toggle-text' },
             el('strong', { text: title }),
             el('span', { class: 'field-hint', text: hint })));
+      }
+
+      // ----- link to share -----
+      // Where players open this quiz. For an Anonymous quiz it is how guests get in.
+      var shareRow = null;
+      if (!isNew) {
+        var shareLink = new URL('quiz.html?id=' + state.id, window.location.href).href;
+        var shareInput = el('input', { type: 'text', readonly: true, value: shareLink, 'aria-label': 'Link to this quiz', onfocus: function () { shareInput.select(); } });
+        var copyBtn = el('button', {
+          type: 'button', class: 'btn-secondary btn-small',
+          onclick: async function () {
+            try {
+              await navigator.clipboard.writeText(shareLink);
+            } catch (e) {
+              shareInput.focus();
+              shareInput.select();
+              document.execCommand('copy');
+            }
+            window.UI.toast('Link copied.', { kind: 'success' });
+          }
+        }, 'Copy link');
+        shareRow = el('div', { class: 'cms-share' },
+          el('span', { class: 'cms-share-label', text: 'Link to this quiz' }),
+          el('div', { class: 'cms-share-box' }, shareInput, copyBtn));
       }
 
       // ----- rewards -----
@@ -774,8 +808,9 @@
         var wantsShuffle = state.shuffle_questions || state.shuffle_answers;
 
         P.status(statusEl, 'Saving…');
-        var rewardsChanged = Object.keys(DEFAULT_REWARDS).some(function (k) { return state.rewards[k] !== DEFAULT_REWARDS[k]; });
+        var rewardsChanged = Object.keys(initialRewards).some(function (k) { return state.rewards[k] !== initialRewards[k]; });
         var droppedRewards = false;
+        var droppedGuests = false;
         var result = await P.withBusy([saveBtn, deleteBtn], async function () {
           var withShuffle = Object.assign({}, args, {
             p_shuffle_questions: state.shuffle_questions,
@@ -786,15 +821,23 @@
           // docs/pending-supabase-sql.md hasn't been run), so try the older
           // shape, unless that would lose something the moderator set: the
           // shuffle switches.
+          function shape(withGuests, withRewards) {
+            var a = Object.assign({}, withShuffle);
+            if (withRewards) a.p_rewards = state.rewards;
+            if (withGuests) a.p_allow_guests = state.allow_guests;
+            return a;
+          }
           var attempts = [];
-          if (state.rewards_supported) attempts.push(Object.assign({}, withShuffle, { p_rewards: state.rewards }));
-          attempts.push(withShuffle);
+          if (state.guests_supported) attempts.push(shape(true, state.rewards_supported));
+          if (state.rewards_supported) attempts.push(shape(false, true));
+          attempts.push(shape(false, false));
           if (!wantsShuffle) attempts.push(args);
           var saved;
           for (var a = 0; a < attempts.length; a++) {
             saved = await window.sb.rpc('save_quiz', attempts[a]);
             if (!saved.error || saved.error.code !== 'PGRST202') {
               droppedRewards = state.rewards_supported && !('p_rewards' in attempts[a]);
+              droppedGuests = state.guests_supported && !('p_allow_guests' in attempts[a]);
               break;
             }
           }
@@ -810,8 +853,11 @@
         // their ids; otherwise saving twice would add them twice.
         P.setDirty(false);
         await loadList();
-        await loadQuiz(result.data, droppedRewards && rewardsChanged
-          ? 'Saved, but the rewards were not: they need a database update (docs/pending-supabase-sql.md).'
+        var notSaved = [];
+        if (droppedRewards && rewardsChanged) notSaved.push('the rewards');
+        if (droppedGuests && state.allow_guests !== initialGuests) notSaved.push('the Anonymous setting');
+        await loadQuiz(result.data, notSaved.length
+          ? 'Saved, but ' + notSaved.join(' and ') + (notSaved.length > 1 ? ' were' : ' was') + ' not: ' + (notSaved.length > 1 ? 'they need' : 'it needs') + ' a database update (docs/pending-supabase-sql.md).'
           : 'Saved.', openIndexes);
       }
 
@@ -854,7 +900,10 @@
             el('h3', { text: 'When the quiz is played' }),
             state.shuffle_supported ? null : el('span', { class: 'cms-hint', text: 'Needs a database update (docs/pending-supabase-sql.md)' })),
           toggleRow('shuffle_questions', 'Shuffle the questions', 'Each player gets the questions in a different, random order.'),
-          toggleRow('shuffle_answers', 'Shuffle the answer choices', 'The answers of every question are shown in a random order.')),
+          toggleRow('shuffle_answers', 'Shuffle the answer choices', 'The answers of every question are shown in a random order.'),
+          toggleRow('allow_guests', 'Anonymous quiz', 'Anyone with the link can play without an account, as Guest1, Guest2, … Guests earn no EXP or bananas and are asked to create an account at the end.', 'guests_supported'),
+          state.guests_supported ? null : el('span', { class: 'cms-hint', text: 'The Anonymous setting needs a database update (docs/pending-supabase-sql.md)' }),
+          shareRow),
         el('section', { class: 'cms-section' },
           el('div', { class: 'cms-section-head' },
             el('div', { class: 'cms-section-title' },
