@@ -8,33 +8,11 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 
 ## Currently pending
 
-### `signup: username checks`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Sign-up: username checks". Only needs the `profiles` query.
-- **Why it's needed:** `username_available()` lets the sign-up page tell people a username is taken *before* they submit (and after, when two people race for it); usernames also become unique ignoring capitals, and the 3-24 letters/numbers/underscores rule is enforced in the database for new usernames.
-- **Until it's run:** sign-up still works and shows a sensible message when the username is taken, but only after submitting ("that username may already be taken"); `Khi` and `khi` are both allowed.
-- **Added:** 2026-10-14.
-
-### `quiz-images: storage bucket`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz pictures: uploads". Independent (needs only the `profiles` query).
-- **Why it's needed:** the public `quiz-images` Storage bucket (moderator-only writes, 5 MB, PNG/JPG/WebP/GIF) behind the **Upload a picture** button in CMS > Quizzes.
-- **Until it's run:** the upload button reports that it needs a database update; pasting a picture link still works.
-- **Added:** 2026-10-15.
-
-### `quizzes: rewards + exp`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz rewards: EXP and bananas". Run it **after** `quizzes: pictures + player + leaderboard` (and don't re-run the older `save_quiz` queries afterwards).
-- **Why it's needed:** pays EXP and bananas when a player finishes a quiz (one amount the first time, another on replays, set per quiz in the CMS), adds `profiles.exp`, and replaces `protect_privileged_columns`, `save_quiz`, `get_quiz_intro` and `finish_quiz`.
-- **Until it's run:** finishing a quiz pays nothing, the CMS Rewards fields are disabled, and the Profile page shows no EXP.
-- **Added:** 2026-10-15.
-
-### `quizzes: anonymous play + claiming rewards`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz: anonymous play, and claiming rewards". Run it **after** `quizzes: rewards + exp` and `quiz_effects` (and don't re-run the older quiz-player or `save_quiz` queries afterwards).
-- **Why it's needed:** the **Anonymous** quiz setting (guests play without an account as Guest1, Guest2, ...; no EXP or bananas), the **Claim rewards!** button (finishing now adds to a pending reward that the button pays out), and the third effect kind (reward, with the banana flash). It replaces the quiz-player functions (`get_quiz_intro`, `start_quiz`, `answer_question`, `finish_quiz`, `get_quiz_leaderboard`, `quiz_rank`, `save_quiz`) and adds `claim_quiz_reward`.
-- **Until it's run:** signed-in players can still play as before (the older functions pay straight away; Claim rewards! just shows what was paid). Guests can't play, the CMS Anonymous switch is disabled, and rewards can't be held back for claiming.
-- **Added:** 2026-10-17.
+Nothing is pending: every snippet in `supabase-sql.md` has been run.
 
 ## Applied
 
-As of the comparison above (plus what you confirmed on 2026-10-14), every other snippet in `supabase-sql.md` has been applied:
+As of the comparison above (plus what you confirmed, and a read-only check of the live database on 2026-10-18), every other snippet in `supabase-sql.md` has been applied:
 
 | Snippet (the "Save as" name) | What it covers |
 | --- | --- |
@@ -47,6 +25,11 @@ As of the comparison above (plus what you confirmed on 2026-10-14), every other 
 | `quizzes: shuffle + default language` | quiz shuffle switches, new accounts default to Vietnamese *(you confirmed 2026-10-14)* |
 | `quizzes: pictures + player + leaderboard` | question pictures, the quiz player functions, `quiz_players` + leaderboard *(you confirmed 2026-10-14)* |
 | `quiz_effects: schema + rls + starter effects` | the effects table and the two starter effects *(you confirmed 2026-10-14)* |
+| `signup: username checks` | `username_available()`, case-insensitive usernames, username format check *(found in the live database 2026-10-18)* |
+| `quiz-images: storage bucket` | the public quiz-images bucket and its policies *(found in the live database 2026-10-18)* |
+| `quizzes: rewards + exp` | `profiles.exp`, per-quiz rewards, finish_quiz paying out *(found in the live database 2026-10-18)* |
+| `quizzes: anonymous play + claiming rewards` | guests (Guest1...), pending rewards + claiming, the reward effect kind *(found in the live database 2026-10-18)* |
+| `quiz leaderboard: top-3 emoji` | `quiz_players.emoji`, `set_quiz_emoji()`, the leaderboard returning each top-3 player's emoji *(you confirmed 2026-10-18; also found in the live database)* |
 
 (That table is only a record of what the check found. It isn't a to-do list.)
 

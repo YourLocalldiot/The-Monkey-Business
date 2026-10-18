@@ -13,6 +13,10 @@
 // database names the guest "Guest<n>". Guests earn no EXP or bananas, and at
 // the end are invited to create an account.
 //
+// Leaderboard: whoever is in the top 3 (guest or not) gets a "Leave an emoji"
+// button on their own row, which opens a picker; the emoji is then shown next
+// to their name for everyone (set_quiz_emoji in the database checks the top 3).
+//
 // Rewards: for a signed-in player, finishing leaves EXP and bananas waiting;
 // the "Claim rewards!" button pays them (with the reward effect, then a
 // notification of what was received).
@@ -33,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     introReward: $('introReward'), introGuest: $('introGuest'),
     guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
-    lang: $('langBtn'),
+    lang: $('langBtn'), resultTop: $('resultTop'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
   };
 
@@ -155,6 +159,22 @@ document.addEventListener('DOMContentLoaded', async function () {
       name.textContent = row.username;
       item.appendChild(place);
       item.appendChild(name);
+      if (row.emoji) {
+        var mark = document.createElement('span');
+        mark.className = 'quiz-board-emoji';
+        mark.textContent = row.emoji;
+        item.appendChild(mark);
+      }
+      // The top 3 can leave (or change) their own emoji. Rows only have an
+      // `emoji` field once the database has the emoji SQL.
+      if (row.is_me && row.place <= 3 && 'emoji' in row) {
+        var pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'quiz-board-emoji-btn';
+        pick.textContent = I18N.t(row.emoji ? 'quiz.emoji.change' : 'quiz.emoji.add');
+        pick.addEventListener('click', function () { chooseEmoji(row.emoji || ''); });
+        item.appendChild(pick);
+      }
       if (row.is_me) {
         var me = document.createElement('span');
         me.className = 'quiz-board-me';
@@ -165,7 +185,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
   }
 
+  var boardIds = null;   // the leaderboard on screen: [list id, empty-note id]
+
   async function loadBoard(listId, emptyId) {
+    boardIds = [listId, emptyId];
     var list = $(listId), empty = $(emptyId);
     var result = await rpc('get_quiz_leaderboard', { p_quiz_id: quizId });
     if (result.error) {
@@ -176,6 +199,99 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
     renderBoard(list, empty, result.data || []);
     return result.data || [];
+  }
+
+  // The emojis to choose from (kept friendly on purpose; the database only
+  // accepts emoji characters).
+  var EMOJIS = ['🎉', '🏆', '👑', '🔥', '💪', '😎', '🤩', '😄', '😆', '🥳', '🤓', '🧠',
+    '🍌', '🐒', '🙈', '🙉', '🙊', '🚀', '⭐', '💯', '👏', '❤️', '😜', '🤪'];
+
+  // Opens the picker; resolves to the chosen emoji, '' to remove it, or null
+  // when it was closed without choosing.
+  function pickEmoji(current) {
+    return new Promise(function (resolve) {
+      var previous = document.activeElement;
+      var overlay = document.createElement('div');
+      overlay.className = 'ui-overlay';
+      var box = document.createElement('div');
+      box.className = 'ui-dialog quiz-emoji-dialog';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-labelledby', 'emojiTitle');
+
+      var title = document.createElement('h2');
+      title.className = 'ui-dialog-title';
+      title.id = 'emojiTitle';
+      title.textContent = I18N.t('quiz.emoji.title');
+      var text = document.createElement('p');
+      text.className = 'ui-dialog-text';
+      text.textContent = I18N.t('quiz.emoji.text');
+
+      var grid = document.createElement('div');
+      grid.className = 'quiz-emoji-grid';
+      EMOJIS.forEach(function (emoji) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'quiz-emoji-choice' + (emoji === current ? ' is-current' : '');
+        b.textContent = emoji;
+        b.setAttribute('aria-label', emoji);
+        b.addEventListener('click', function () { finish(emoji); });
+        grid.appendChild(b);
+      });
+
+      var actions = document.createElement('div');
+      actions.className = 'ui-dialog-actions';
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'btn-secondary';
+      cancel.textContent = I18N.t('ui.cancel');
+      cancel.addEventListener('click', function () { finish(null); });
+      if (current) {
+        var remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-danger';
+        remove.textContent = I18N.t('quiz.emoji.remove');
+        remove.addEventListener('click', function () { finish(''); });
+        actions.appendChild(remove);
+      }
+      actions.appendChild(cancel);
+
+      box.appendChild(title);
+      box.appendChild(text);
+      box.appendChild(grid);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      function finish(answer) {
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        if (previous && previous.focus && previous.isConnected) previous.focus();
+        resolve(answer);
+      }
+      function onKey(event) {
+        if (event.key === 'Escape') { event.preventDefault(); finish(null); }
+      }
+      document.addEventListener('keydown', onKey, true);
+      overlay.addEventListener('mousedown', function (event) { if (event.target === overlay) finish(null); });
+      var first = grid.querySelector('.is-current') || grid.firstChild;
+      first.focus();
+    });
+  }
+
+  // A top-3 player picks (or removes) their emoji; the leaderboard is then
+  // reloaded so everyone's view, including theirs, shows it.
+  async function chooseEmoji(current) {
+    var emoji = await pickEmoji(current);
+    if (emoji === null || emoji === current) return;
+    var result = await rpc('set_quiz_emoji', { p_quiz_id: quizId, p_emoji: emoji });
+    if (result.error) {
+      console.error('quiz.js: could not save the emoji', result.error);
+      window.UI.toast(I18N.t('quiz.emoji.fail'), { kind: 'error' });
+      return;
+    }
+    window.UI.toast(I18N.t(emoji ? 'quiz.emoji.saved' : 'quiz.emoji.removed'), { kind: 'success' });
+    if (boardIds) loadBoard(boardIds[0], boardIds[1]);
   }
 
   // ---------- start-up ----------
@@ -547,7 +663,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         first: !!done.data.first
       });
     }
-    loadBoard('resultBoard', 'resultBoardEmpty');
+    loadBoard('resultBoard', 'resultBoardEmpty').then(function (rows) {
+      var mine = rows.filter(function (r) { return r.is_me; })[0];
+      if (mine && mine.place <= 3 && 'emoji' in mine) {
+        el.resultTop.textContent = I18N.t('quiz.emoji.hint');
+        el.resultTop.hidden = false;
+      }
+    });
     window.scrollTo(0, 0);
   }
 

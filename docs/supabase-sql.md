@@ -2965,6 +2965,121 @@ grant  execute on function public.save_quiz(bigint, text, text, jsonb, text, tex
 
 Until it has been run: signed-in players can still play as before (the older functions pay straight away, and **Claim rewards!** just shows what was paid); guests can't play, the CMS **Anonymous** switch is disabled, and the reward effect isn't stored (the page uses a built-in banana flash).
 
+## Quiz leaderboard: top-3 emoji
+
+**Run this after the `quizzes: anonymous play + claiming rewards` query above.** A player who is in the **top 3** of a quiz's leaderboard (signed in or a guest) can leave an **emoji** next to their name for other players to see: on the leaderboard, their own row gets a **Leave an emoji** button that opens a picker of friendly emojis. It is shown on the leaderboard while they stay in the top 3 (it comes back if they climb back in, and can be changed or removed any time).
+
+What it changes:
+
+- `quiz_players.emoji` (new, empty by default). The database only accepts emoji and symbol characters there (no letters, digits or spaces), up to 12 characters.
+- **New:** `set_quiz_emoji(p_quiz_id, p_emoji, p_guest_id)`. It checks that the caller has finished the quiz and is **currently in the top 3** (places are by best score; tied scores share a place), so it can't be set from outside the top 3 even by calling the API directly. An empty emoji removes it. Guests can call it for anonymous quizzes, like the other play functions.
+- **Replaced:** `get_quiz_leaderboard` now also returns each row's `emoji` (only filled for places 1 to 3). Its result gained a column, so the old version is dropped first.
+
+**Save as:** `quiz leaderboard: top-3 emoji`
+
+Safe to re-run.
+
+```sql
+-- 1. Where the emoji is kept, and what may go in it.
+alter table public.quiz_players add column if not exists emoji text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'quiz_players_emoji_check') then
+    alter table public.quiz_players
+      add constraint quiz_players_emoji_check check (
+        emoji is null or (
+          char_length(emoji) between 1 and 12
+          and emoji ~ '^[\u203C\u2049\u2122\u2139\u2190-\u2BFF\U0001F000-\U0001FAFF\uFE0F\u200D]+$'
+        )
+      );
+  end if;
+end $$;
+
+-- 2. Leave (or change, or remove) an emoji. Only for the top 3.
+create or replace function public.set_quiz_emoji(p_quiz_id bigint, p_emoji text, p_guest_id uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pid   bigint;
+  v_best  integer;
+  v_place integer;
+  v_emoji text := nullif(btrim(coalesce(p_emoji, '')), '');
+begin
+  perform public.quiz_for_play(p_quiz_id);
+  v_pid := public.quiz_player_id(p_quiz_id, p_guest_id);
+  if v_pid is null then
+    raise exception 'Play the quiz first.';
+  end if;
+  select qp.best_score into v_best from public.quiz_players qp where qp.id = v_pid;
+  if v_best is null then
+    raise exception 'Finish the quiz first.';
+  end if;
+
+  -- the same place the leaderboard shows: 1 + how many have a better score
+  select 1 + count(*) into v_place
+    from public.quiz_players o
+   where o.quiz_id = p_quiz_id and o.best_score > v_best;
+  if v_place > 3 then
+    raise exception 'Only the top 3 can leave an emoji.' using errcode = '42501';
+  end if;
+
+  if v_emoji is not null and (char_length(v_emoji) > 12
+      or v_emoji !~ '^[\u203C\u2049\u2122\u2139\u2190-\u2BFF\U0001F000-\U0001FAFF\uFE0F\u200D]+$') then
+    raise exception 'That is not an emoji.';
+  end if;
+
+  update public.quiz_players set emoji = v_emoji, updated_at = now() where id = v_pid;
+  return jsonb_build_object('emoji', v_emoji, 'place', v_place);
+end;
+$$;
+
+-- 3. The leaderboard also returns the emoji (its result changed, so drop it first).
+drop function if exists public.get_quiz_leaderboard(bigint, uuid);
+
+create or replace function public.get_quiz_leaderboard(p_quiz_id bigint, p_guest_id uuid default null)
+returns table (place integer, username text, is_me boolean, total integer, emoji text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_quiz public.quizzes%rowtype;
+  v_pid  bigint;
+begin
+  v_quiz := public.quiz_for_play(p_quiz_id);
+  v_pid := public.quiz_player_id(p_quiz_id, p_guest_id);
+  return query
+    with ranked as (
+      select qp.id as pid, qp.user_id as uid, qp.guest_name as gname, qp.emoji as emo,
+             (rank() over (order by qp.best_score desc))::integer as plc,
+             (count(*) over ())::integer as tot
+        from public.quiz_players qp
+       where qp.quiz_id = p_quiz_id and qp.best_score is not null
+    )
+    -- the emoji is only shown for the top 3
+    select r.plc, coalesce(pr.username, r.gname, '?'), coalesce(r.pid = v_pid, false), r.tot,
+           case when r.plc <= 3 then r.emo end
+      from ranked r
+      left join public.profiles pr on pr.id = r.uid
+     where r.plc <= 10 or r.pid = v_pid
+     order by r.plc, 2;
+end;
+$$;
+
+revoke execute on function public.set_quiz_emoji(bigint, text, uuid) from public;
+revoke execute on function public.get_quiz_leaderboard(bigint, uuid) from public;
+grant  execute on function public.set_quiz_emoji(bigint, text, uuid) to anon, authenticated;
+grant  execute on function public.get_quiz_leaderboard(bigint, uuid) to anon, authenticated;
+```
+
+Until it has been run: the leaderboard works as before and nobody sees the emoji button.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

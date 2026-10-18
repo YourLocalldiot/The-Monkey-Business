@@ -4,8 +4,9 @@
 // runs before anything is drawn. Three jobs:
 //
 //   1. Work out the language: the saved choice (localStorage 'lang', set from
-//      the Profile page or from the signed-in user's profile), else the
-//      browser's language, else English.
+//      the Profile page, from the guest switch on the quiz page, or from the
+//      signed-in user's profile), else Vietnamese: anyone new to the site,
+//      guest or not, sees Vietnamese first, whatever their browser's language.
 //   2. Translate static text. Elements carry data-i18n="key" (their own text
 //      is replaced) and/or data-i18n-<attr>="key" for placeholder, aria-label,
 //      title, alt and content. Each page calls I18N.apply() as the last thing
@@ -35,10 +36,7 @@
   }
 
   function detect() {
-    var saved = stored();
-    if (saved) return saved;
-    var browser = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-    return /^vi\b/i.test(browser) ? 'vi' : 'en';
+    return stored() || 'vi';
   }
 
   var lang = detect();
