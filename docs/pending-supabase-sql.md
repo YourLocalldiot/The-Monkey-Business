@@ -8,7 +8,11 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 
 ## Currently pending
 
-Nothing is pending: every snippet in `supabase-sql.md` has been run.
+### `podium talk: speech bubbles + CMS options`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Podium talk". Run it after `quiz leaderboard: top-3 emoji` (already applied).
+- **Why it's needed:** the speech bubble next to a top-3 player's name, and **CMS > Podium talk**, where moderators set which emojis or phrases a podium holder can choose. Adds the `podium_talk` table (seeded with the 24 emojis and four phrases), `quiz_players.talk_id`, `set_quiz_talk()` (replacing `set_quiz_emoji`), and makes `get_quiz_leaderboard` return `talk_id` / `talk` / `talk_vn`; carries over emojis already chosen, then drops `quiz_players.emoji`.
+- **Until it's run:** the leaderboard still shows the emojis chosen so far, but players can't pick a new one and the CMS Podium talk tab can't load.
+- **Added:** 2026-10-19.
 
 ## Applied
 

@@ -43,6 +43,7 @@ assets/js/moderator-playlists.js CMS > Playlists: details + the ordered videos/q
 assets/js/moderator-quizzes.js   CMS > Quizzes: search; name, description, questions (with an optional picture: a link or an upload), answers, correct answers, time limits, shuffle switches, EXP/banana rewards, CSV bulk add; saved through save_quiz()
 assets/js/moderator-videos.js    CMS > Videos: the video library (names + YouTube link)
 assets/js/moderator-effects.js  CMS > Effects: the correct / incorrect flashes a quiz plays (type, text or emoji, colour, flash time), with a preview
+assets/js/moderator-podium.js   CMS > Podium talk: the emojis and phrases a top-3 player can choose to say in the leaderboard's speech bubble
 assets/js/effects.js            Plays an effect (a coloured blur flash over the screen + a text/emoji) and loads them from quiz_effects
 assets/js/ui.js                 The site's own notifications: toasts, confirm dialog, form-validation messages (replace the browser's)
 assets/js/quiz-import.js        Reads the quiz template CSV and validates it for the CMS Quizzes tab
@@ -50,7 +51,7 @@ assets/templates/               TheMonkeyBusinessQuizTemplate.csv, the downloada
 assets/js/sidebar.js            Expand/collapse button for the navigation sidebar (remembered per device)
 assets/js/loader.js             Loading screen (looping animation + "Web guy is an idiot") shown while a page's images, scripts and fonts are still loading
 assets/js/video.js              Loads the video for video.html and embeds it
-assets/js/quiz.js               Plays a quiz (signed in, or as a guest on an Anonymous quiz) through the database's start_quiz / answer_question / finish_quiz / claim_quiz_reward functions (points = round(1000 x (1 - response time / timer x 1/2)); leaderboard shows usernames, places and, for the top 3, an emoji they chose)
+assets/js/quiz.js               Plays a quiz (signed in, or as a guest on an Anonymous quiz) through the database's start_quiz / answer_question / finish_quiz / claim_quiz_reward functions (points = round(1000 x (1 - response time / timer x 1/2)); leaderboard shows usernames, places and, for the top 3, a speech bubble with what they chose to say)
 assets/js/moderator-users.js     CMS > Users: look up a user, edit their coins/streak
 assets/js/simulation.js          Drives simulation.html — its own localStorage state, no backend involved
 assets/js/browse-playlists.js    Fetches public.playlists (and their contents), renders the expandable rows, wires "Add playlist"

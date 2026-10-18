@@ -13,9 +13,11 @@
 // database names the guest "Guest<n>". Guests earn no EXP or bananas, and at
 // the end are invited to create an account.
 //
-// Leaderboard: whoever is in the top 3 (guest or not) gets a "Leave an emoji"
-// button on their own row, which opens a picker; the emoji is then shown next
-// to their name for everyone (set_quiz_emoji in the database checks the top 3).
+// Leaderboard: whoever is in the top 3 (guest or not) can say something from
+// the podium: their own row gets a "Say something" button that opens a picker
+// of the options moderators set in CMS > Podium talk (emojis or phrases). What
+// they choose is shown in a speech bubble next to their name, for everyone
+// (set_quiz_talk in the database checks the top 3).
 //
 // Rewards: for a signed-in player, finishing leaves EXP and bananas waiting;
 // the "Claim rewards!" button pays them (with the reward effect, then a
@@ -150,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
       previous = row.place;
       var item = document.createElement('li');
-      item.className = 'quiz-board-row' + (row.is_me ? ' is-me' : '');
+      item.className = 'quiz-board-row' + (row.is_me ? ' is-me' : '') + (row.place <= 3 ? ' place-' + row.place : '');
       var place = document.createElement('span');
       place.className = 'quiz-board-place tnum';
       place.textContent = row.place;
@@ -159,20 +161,22 @@ document.addEventListener('DOMContentLoaded', async function () {
       name.textContent = row.username;
       item.appendChild(place);
       item.appendChild(name);
-      if (row.emoji) {
-        var mark = document.createElement('span');
-        mark.className = 'quiz-board-emoji';
-        mark.textContent = row.emoji;
-        item.appendChild(mark);
+      // What a podium holder says, in a speech bubble (their language's version if there is one).
+      var said = I18N.pick(row.talk_vn, row.talk) || row.emoji;
+      if (said) {
+        var bubble = document.createElement('span');
+        bubble.className = 'quiz-board-talk' + (isPhrase(said) ? ' is-phrase' : '');
+        bubble.textContent = said;
+        item.appendChild(bubble);
       }
-      // The top 3 can leave (or change) their own emoji. Rows only have an
-      // `emoji` field once the database has the emoji SQL.
-      if (row.is_me && row.place <= 3 && 'emoji' in row) {
+      // The top 3 can say something (or change it) on their own row. Rows only
+      // have a `talk` field once the database has the podium-talk SQL.
+      if (row.is_me && row.place <= 3 && 'talk' in row) {
         var pick = document.createElement('button');
         pick.type = 'button';
-        pick.className = 'quiz-board-emoji-btn';
-        pick.textContent = I18N.t(row.emoji ? 'quiz.emoji.change' : 'quiz.emoji.add');
-        pick.addEventListener('click', function () { chooseEmoji(row.emoji || ''); });
+        pick.className = 'quiz-board-talk-btn';
+        pick.textContent = I18N.t(said ? 'quiz.talk.change' : 'quiz.talk.add');
+        pick.addEventListener('click', function () { chooseTalk(row.talk_id || null); });
         item.appendChild(pick);
       }
       if (row.is_me) {
@@ -186,6 +190,9 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   var boardIds = null;   // the leaderboard on screen: [list id, empty-note id]
+
+  // Words get smaller type than an emoji does.
+  function isPhrase(text) { return /[\p{L}\p{N}]/u.test(text); }
 
   async function loadBoard(listId, emptyId) {
     boardIds = [listId, emptyId];
@@ -201,41 +208,47 @@ document.addEventListener('DOMContentLoaded', async function () {
     return result.data || [];
   }
 
-  // The emojis to choose from (kept friendly on purpose; the database only
-  // accepts emoji characters).
-  var EMOJIS = ['🎉', '🏆', '👑', '🔥', '💪', '😎', '🤩', '😄', '😆', '🥳', '🤓', '🧠',
-    '🍌', '🐒', '🙈', '🙉', '🙊', '🚀', '⭐', '💯', '👏', '❤️', '😜', '🤪'];
+  // The options a podium holder can say (CMS > Podium talk), newest settings
+  // every time the picker opens.
+  async function loadTalkOptions() {
+    var result = await window.sb.from('podium_talk').select('id, content, content_vn').order('position').order('id');
+    if (result.error) {
+      console.error('quiz.js: could not load the podium talk options', result.error);
+      return null;
+    }
+    return result.data || [];
+  }
 
-  // Opens the picker; resolves to the chosen emoji, '' to remove it, or null
-  // when it was closed without choosing.
-  function pickEmoji(current) {
+  // Opens the picker; resolves to the chosen option's id, 0 to take the
+  // message back, or null when it was closed without choosing.
+  function pickTalk(options, currentId) {
     return new Promise(function (resolve) {
       var previous = document.activeElement;
       var overlay = document.createElement('div');
       overlay.className = 'ui-overlay';
       var box = document.createElement('div');
-      box.className = 'ui-dialog quiz-emoji-dialog';
+      box.className = 'ui-dialog quiz-talk-dialog';
       box.setAttribute('role', 'dialog');
       box.setAttribute('aria-modal', 'true');
-      box.setAttribute('aria-labelledby', 'emojiTitle');
+      box.setAttribute('aria-labelledby', 'talkTitle');
 
       var title = document.createElement('h2');
       title.className = 'ui-dialog-title';
-      title.id = 'emojiTitle';
-      title.textContent = I18N.t('quiz.emoji.title');
+      title.id = 'talkTitle';
+      title.textContent = I18N.t('quiz.talk.title');
       var text = document.createElement('p');
       text.className = 'ui-dialog-text';
-      text.textContent = I18N.t('quiz.emoji.text');
+      text.textContent = I18N.t('quiz.talk.text');
 
       var grid = document.createElement('div');
-      grid.className = 'quiz-emoji-grid';
-      EMOJIS.forEach(function (emoji) {
+      grid.className = 'quiz-talk-grid';
+      options.forEach(function (option) {
+        var said = I18N.pick(option.content_vn, option.content);
         var b = document.createElement('button');
         b.type = 'button';
-        b.className = 'quiz-emoji-choice' + (emoji === current ? ' is-current' : '');
-        b.textContent = emoji;
-        b.setAttribute('aria-label', emoji);
-        b.addEventListener('click', function () { finish(emoji); });
+        b.className = 'quiz-talk-choice' + (isPhrase(said) ? ' is-phrase' : '') + (option.id === currentId ? ' is-current' : '');
+        b.textContent = said;
+        b.addEventListener('click', function () { finish(option.id); });
         grid.appendChild(b);
       });
 
@@ -246,12 +259,12 @@ document.addEventListener('DOMContentLoaded', async function () {
       cancel.className = 'btn-secondary';
       cancel.textContent = I18N.t('ui.cancel');
       cancel.addEventListener('click', function () { finish(null); });
-      if (current) {
+      if (currentId) {
         var remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'btn-danger';
-        remove.textContent = I18N.t('quiz.emoji.remove');
-        remove.addEventListener('click', function () { finish(''); });
+        remove.textContent = I18N.t('quiz.talk.remove');
+        remove.addEventListener('click', function () { finish(0); });
         actions.appendChild(remove);
       }
       actions.appendChild(cancel);
@@ -274,23 +287,32 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
       document.addEventListener('keydown', onKey, true);
       overlay.addEventListener('mousedown', function (event) { if (event.target === overlay) finish(null); });
-      var first = grid.querySelector('.is-current') || grid.firstChild;
+      var first = grid.querySelector('.is-current') || grid.firstChild || cancel;
       first.focus();
     });
   }
 
-  // A top-3 player picks (or removes) their emoji; the leaderboard is then
-  // reloaded so everyone's view, including theirs, shows it.
-  async function chooseEmoji(current) {
-    var emoji = await pickEmoji(current);
-    if (emoji === null || emoji === current) return;
-    var result = await rpc('set_quiz_emoji', { p_quiz_id: quizId, p_emoji: emoji });
-    if (result.error) {
-      console.error('quiz.js: could not save the emoji', result.error);
-      window.UI.toast(I18N.t('quiz.emoji.fail'), { kind: 'error' });
+  // A top-3 player chooses (or takes back) what they say; the leaderboard is
+  // then reloaded so everyone's view, including theirs, shows it.
+  async function chooseTalk(currentId) {
+    var options = await loadTalkOptions();
+    if (!options) {
+      window.UI.toast(I18N.t('quiz.talk.fail'), { kind: 'error' });
       return;
     }
-    window.UI.toast(I18N.t(emoji ? 'quiz.emoji.saved' : 'quiz.emoji.removed'), { kind: 'success' });
+    if (!options.length) {
+      window.UI.toast(I18N.t('quiz.talk.none'), { kind: 'info' });
+      return;
+    }
+    var chosen = await pickTalk(options, currentId);
+    if (chosen === null || (chosen || null) === currentId) return;
+    var result = await rpc('set_quiz_talk', { p_quiz_id: quizId, p_talk_id: chosen || null });
+    if (result.error) {
+      console.error('quiz.js: could not save what the player says', result.error);
+      window.UI.toast(I18N.t('quiz.talk.fail'), { kind: 'error' });
+      return;
+    }
+    window.UI.toast(I18N.t(chosen ? 'quiz.talk.saved' : 'quiz.talk.removed'), { kind: 'success' });
     if (boardIds) loadBoard(boardIds[0], boardIds[1]);
   }
 
@@ -665,8 +687,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
     loadBoard('resultBoard', 'resultBoardEmpty').then(function (rows) {
       var mine = rows.filter(function (r) { return r.is_me; })[0];
-      if (mine && mine.place <= 3 && 'emoji' in mine) {
-        el.resultTop.textContent = I18N.t('quiz.emoji.hint');
+      if (mine && mine.place <= 3 && 'talk' in mine) {
+        el.resultTop.textContent = I18N.t('quiz.talk.hint');
         el.resultTop.hidden = false;
       }
     });
