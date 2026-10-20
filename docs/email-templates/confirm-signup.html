@@ -1,0 +1,78 @@
+<!--
+  Supabase email template: "Confirm signup".
+
+  Paste this whole file into Supabase > Authentication > Emails > Templates >
+  Confirm signup (the "Message body" box). Set the "Subject" box to:
+
+    Xác nhận tài khoản The Monkey Business / Confirm your The Monkey Business account
+
+  Variables Supabase fills in (keep the {{ ... }} exactly as written):
+    {{ .ConfirmationURL }}   the confirm link. Where it lands is decided by
+                             Authentication > URL Configuration (Site URL and
+                             Redirect URLs), not by this file.
+    {{ .Data.first_name }}   the first name typed on the sign-up page
+    {{ .Email }}             the address being confirmed
+
+  Only inline styles and tables are used on purpose: many email apps ignore
+  stylesheets and web fonts. Vietnamese first (the site's default), English below.
+-->
+<!doctype html>
+<html lang="vi">
+<body style="margin:0;padding:0;background:#fff2cd;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff2cd;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:18px;border:1px solid #e9d9a8;">
+          <tr>
+            <td style="padding:26px 30px 6px 30px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;color:#4d322b;">
+              🐒 The Monkey Business
+            </td>
+          </tr>
+
+          <!-- Vietnamese -->
+          <tr>
+            <td style="padding:10px 30px 0 30px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#4d322b;">
+              <p style="margin:0 0 12px 0;font-size:18px;font-weight:700;">Chào {{ .Data.first_name }}!</p>
+              <p style="margin:0 0 18px 0;">Cảm ơn bạn đã tạo tài khoản. Bấm nút bên dưới để xác nhận email <strong>{{ .Email }}</strong> rồi đăng nhập nhé.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 30px 8px 30px;">
+              <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#e79b34;color:#3a2208;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:14px 30px;border-radius:999px;">Xác nhận tài khoản</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 30px 18px 30px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#7a6358;">
+              Nếu nút không bấm được, hãy sao chép đường dẫn này vào trình duyệt:<br>
+              <a href="{{ .ConfirmationURL }}" style="color:#7a4b12;word-break:break-all;">{{ .ConfirmationURL }}</a><br>
+              Nếu bạn không đăng ký, cứ bỏ qua email này.
+            </td>
+          </tr>
+
+          <tr><td style="padding:0 30px;"><hr style="border:none;border-top:1px solid #efe3bd;margin:0;"></td></tr>
+
+          <!-- English -->
+          <tr>
+            <td style="padding:18px 30px 0 30px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#4d322b;">
+              <p style="margin:0 0 12px 0;font-size:18px;font-weight:700;">Hi {{ .Data.first_name }}!</p>
+              <p style="margin:0 0 18px 0;">Thanks for creating an account. Press the button below to confirm <strong>{{ .Email }}</strong>, then log in.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 30px 8px 30px;">
+              <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#4d322b;color:#fff2cd;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:14px 30px;border-radius:999px;">Confirm my account</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 30px 26px 30px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#7a6358;">
+              If the button doesn't work, copy this link into your browser:<br>
+              <a href="{{ .ConfirmationURL }}" style="color:#7a4b12;word-break:break-all;">{{ .ConfirmationURL }}</a><br>
+              If you didn't sign up, you can ignore this email.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

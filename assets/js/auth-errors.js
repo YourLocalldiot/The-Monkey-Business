@@ -2,9 +2,14 @@
 // language, instead of showing its English error text.
 //
 //   AuthErrors.kind(error)        -> 'network' | 'exists' | 'weak' | 'email' | 'rate' |
-//                                    'disabled' | 'db' | 'credentials' | 'unconfirmed' | 'other'
+//                                    'disabled' | 'mail' | 'db' | 'credentials' | 'unconfirmed' | 'other'
 //   AuthErrors.text(error)        -> the message to show for the kinds that need no page-specific
 //                                    wording (the page decides what to say for the others)
+//
+// 'mail' means the account could not be made because the confirmation email
+// could not be sent (Supabase's email settings are wrong, e.g. the SMTP login
+// was rejected). It is also reported as 'unexpected_failure', so it has to be
+// recognised by its message before 'db' is.
 //
 // 'db' is what Supabase reports when a database trigger fails while creating
 // a user ("Database error saving new user"). For sign-up that nearly always
@@ -23,6 +28,7 @@
     if (code === 'email_address_invalid' || /email.*(invalid|not valid)|invalid.*email/i.test(message)) return 'email';
     if (status === 429 || /rate.?limit|too many/i.test(code + ' ' + message)) return 'rate';
     if (code === 'signup_disabled' || /signups? (not allowed|are disabled|disabled)/i.test(message)) return 'disabled';
+    if (/error sending .*(email|mail)|smtp|sending .*(email|mail)/i.test(message)) return 'mail';
     if (code === 'unexpected_failure' || /database error saving new user/i.test(message)) return 'db';
     if (code === 'invalid_credentials' || /invalid login credentials/i.test(message)) return 'credentials';
     if (code === 'email_not_confirmed' || /email not confirmed/i.test(message)) return 'unconfirmed';
@@ -35,6 +41,7 @@
     email: 'auth.err.email',
     rate: 'auth.err.rate',
     disabled: 'auth.err.disabled',
+    mail: 'auth.err.mail',
     credentials: 'login.invalid',
     unconfirmed: 'login.notConfirmed'
   };
