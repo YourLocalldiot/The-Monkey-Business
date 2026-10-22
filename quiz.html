@@ -21,8 +21,10 @@
   </script>
   <script src="assets/js/theme.js" defer></script>
   <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/lang-switch.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/guest.js" defer></script>
   <script src="assets/js/effects.js" defer></script>
   <script src="assets/js/quiz.js" defer></script>
 </head>
@@ -30,7 +32,10 @@
 
 <div class="video-page quiz-page" id="quizPage" data-state="loading">
   <!-- Top bar: [x] back to Home and the quiz's name; while playing, three
-       boxes on the right (rank, question number out of the total, points). -->
+       boxes on the right (rank, question number out of the total, points),
+       then the language switch (added by assets/js/lang-switch.js). The bar and
+       the timer under it stay pinned to the top of the screen while playing. -->
+  <div class="quiz-top">
   <header class="video-bar">
     <a class="video-close" id="quizClose" href="index.html" aria-label="Back to Home" data-i18n-aria-label="quiz.back" title="Back to Home" data-i18n-title="quiz.back">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -50,9 +55,12 @@
         <span class="quiz-stat-value tnum" id="statPoints">0</span>
       </div>
     </div>
-    <!-- Guests only (assets/js/quiz.js): signed-in players choose their language on the Profile page. -->
-    <button type="button" class="quiz-lang" id="langBtn" hidden></button>
   </header>
+  <div class="quiz-timer" id="quizTimer" role="timer" aria-live="off" hidden>
+    <div class="quiz-timer-track"><div class="quiz-timer-fill" id="timerFill"></div></div>
+    <span class="quiz-timer-text tnum" id="timerText"></span>
+  </div>
+  </div>
 
   <main class="quiz-stage">
     <p class="video-note quiz-note" id="quizNote" role="status" data-i18n="quiz.loading">Loading the quiz…</p>
@@ -65,6 +73,7 @@
         <p class="quiz-meta" id="introMeta"></p>
         <p class="quiz-reward-intro" id="introReward" hidden></p>
         <p class="quiz-guest-note" id="introGuest" data-i18n="quiz.guest.note" hidden>You're playing as a guest. Create an account to earn EXP and bananas.</p>
+        <p class="quiz-warn" data-i18n="quiz.warn.intro">Once you press Start, don't leave this page: closing it or going back loses your progress.</p>
       </div>
       <div class="card quiz-card">
         <h2 class="quiz-board-title" data-i18n="quiz.leaderboard">Leaderboard</h2>
@@ -75,10 +84,6 @@
 
     <!-- One question at a time. -->
     <section class="quiz-view" id="quizPlay" hidden>
-      <div class="quiz-timer" id="quizTimer" role="timer" aria-live="off">
-        <div class="quiz-timer-track"><div class="quiz-timer-fill" id="timerFill"></div></div>
-        <span class="quiz-timer-text tnum" id="timerText"></span>
-      </div>
       <!-- The whole box is split into two equal halves: the question on top
            (its picture, then the text), the answer choices below, which are
            shared out equally between them. -->
@@ -105,7 +110,7 @@
       <!-- Only for guests: an invitation to make an account. -->
       <div class="card quiz-card quiz-guest-card" id="guestCard" hidden>
         <h2 class="quiz-name" data-i18n="quiz.guest.title">Enjoyed the quiz?</h2>
-        <p class="quiz-desc" data-i18n="quiz.guest.text">Create an account to earn EXP and bananas, and to keep your place on the leaderboards.</p>
+        <p class="quiz-desc" data-i18n="quiz.guest.text">Create an account to earn EXP and bananas. When you log in on this device, the results of the quizzes you played as a guest move to your account, so you keep your place on the leaderboards.</p>
         <p class="quiz-meta" id="guestPlayedAs"></p>
         <div class="quiz-guest-actions">
           <a class="btn-primary" id="guestCreate" href="signup.html" data-i18n="quiz.guest.create">Create account</a>
@@ -134,6 +139,7 @@
   <div class="quiz-countdown" id="quizCountdown" hidden role="status" aria-live="assertive">
     <p class="quiz-countdown-label" data-i18n="quiz.getReady">Get ready</p>
     <p class="quiz-countdown-number tnum" id="countdownNumber"></p>
+    <button type="button" class="btn-secondary quiz-countdown-skip" id="skipCountdown" data-i18n="quiz.skip">Skip</button>
   </div>
 </div>
 

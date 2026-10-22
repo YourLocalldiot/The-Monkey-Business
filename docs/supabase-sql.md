@@ -3254,6 +3254,424 @@ grant  execute on function public.get_quiz_leaderboard(bigint, uuid) to anon, au
 
 Until it has been run: the leaderboard shows the emoji chosen with the previous version, but the picker and the CMS **Podium talk** tab don't work yet.
 
+## Video rewards, and finished videos / quizzes (Home's coloured pieces)
+
+**Run this after the `cms: videos, quizzes, playlist contents`, `quizzes: rewards + exp` and `quizzes: anonymous play + claiming rewards` queries.** Three things:
+
+1. **Video rewards.** Every video gets the same four amounts a quiz has: EXP and bananas for the first time a player finishes it, and for finishing it again. They are set in **CMS → Videos → Rewards** (a new video starts at 40 EXP + 20 bananas the first time, 10 EXP + 5 bananas on a rewatch). The video page's **Next** button (it unlocks once the player has watched the video to the end) finishes the video; the EXP and bananas then wait to be claimed with a **Claim rewards!** button, exactly like a quiz. A rewatch is only paid once every 24 hours per video, so the button can't be pressed over and over for repeat rewards.
+2. **Finished videos.** The new `video_progress` table remembers which videos each player has finished. Players can read only their own rows; every change goes through the functions below.
+3. **Home's path of pieces.** `get_my_progress()` tells Home which quizzes (finished at least once, including results carried over from a guest) and which videos the signed-in player has finished, so finished pieces are drawn in colour and the rest in grey.
+
+What it changes:
+
+- `videos.reward_first_exp`, `reward_first_bananas`, `reward_repeat_exp`, `reward_repeat_bananas` (0 to 100000 each).
+- **New table** `video_progress` (`completions`, `pending_exp`, `pending_bananas`, `first_completed_at`, `last_completed_at`), with Row Level Security: a player can read only their own rows.
+- **New:** `finish_video(p_video_id)`, `claim_video_reward(p_video_id)` and `get_my_progress()`; all three need a signed-in player.
+
+**Save as:** `videos: rewards + finished videos`
+
+Safe to re-run.
+
+```sql
+-- =====================================================================
+-- Video rewards (EXP + bananas), finished videos, and what Home needs to
+-- colour the pieces of the path.
+-- Run after the CMS, rewards and anonymous-play queries.
+-- =====================================================================
+
+-- 1. The reward amounts on each video.
+alter table public.videos add column if not exists reward_first_exp      integer not null default 40;
+alter table public.videos add column if not exists reward_first_bananas  integer not null default 20;
+alter table public.videos add column if not exists reward_repeat_exp     integer not null default 10;
+alter table public.videos add column if not exists reward_repeat_bananas integer not null default 5;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'videos_rewards_check') then
+    alter table public.videos add constraint videos_rewards_check check (
+      reward_first_exp between 0 and 100000 and reward_first_bananas between 0 and 100000
+      and reward_repeat_exp between 0 and 100000 and reward_repeat_bananas between 0 and 100000
+    );
+  end if;
+end $$;
+
+-- 2. Which videos each player has finished, and the rewards waiting to be
+--    claimed. Players can read their own rows and nothing else; the
+--    functions below do all the writing.
+create table if not exists public.video_progress (
+  user_id            uuid   not null references auth.users (id) on delete cascade,
+  video_id           bigint not null references public.videos (id) on delete cascade,
+  completions        integer not null default 0,
+  pending_exp        integer not null default 0,
+  pending_bananas    integer not null default 0,
+  first_completed_at timestamptz,
+  last_completed_at  timestamptz,
+  created_at         timestamptz not null default now(),
+  primary key (user_id, video_id)
+);
+
+alter table public.video_progress enable row level security;
+revoke all on public.video_progress from anon, authenticated;
+grant select on public.video_progress to authenticated;
+
+drop policy if exists "Users can view their own video progress" on public.video_progress;
+create policy "Users can view their own video progress"
+  on public.video_progress for select to authenticated
+  using (user_id = (select auth.uid()));
+
+-- 3. "Next" on the video page: the player has watched the video to the end.
+--    The first time pays the first-time reward; after that a rewatch pays
+--    the repeat reward, but only if the last finish was more than 24 hours
+--    ago. The reward is added to what is waiting to be claimed.
+create or replace function public.finish_video(p_video_id bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid      uuid := auth.uid();
+  v_video    public.videos%rowtype;
+  v_row      public.video_progress%rowtype;
+  v_first    boolean;
+  v_exp      integer := 0;
+  v_bananas  integer := 0;
+  v_pexp     integer;
+  v_pbananas integer;
+begin
+  if v_uid is null then
+    raise exception 'Log in to finish this video.' using errcode = '28000';
+  end if;
+
+  select * into v_video from public.videos where id = p_video_id;
+  if not found
+     or not (public.is_moderator()
+             or exists (select 1 from public.playlist_items pi where pi.video_id = p_video_id)) then
+    raise exception 'This video was not found.' using errcode = 'P0002';
+  end if;
+
+  insert into public.video_progress (user_id, video_id)
+  values (v_uid, p_video_id)
+  on conflict (user_id, video_id) do nothing;
+
+  select * into v_row from public.video_progress
+   where user_id = v_uid and video_id = p_video_id
+     for update;
+
+  v_first := v_row.completions = 0;
+  if v_first then
+    v_exp := v_video.reward_first_exp;
+    v_bananas := v_video.reward_first_bananas;
+  elsif coalesce(v_row.last_completed_at, '-infinity'::timestamptz) < now() - interval '24 hours' then
+    v_exp := v_video.reward_repeat_exp;
+    v_bananas := v_video.reward_repeat_bananas;
+  end if;
+
+  update public.video_progress
+     set completions        = completions + 1,
+         pending_exp        = pending_exp + v_exp,
+         pending_bananas    = pending_bananas + v_bananas,
+         first_completed_at = coalesce(first_completed_at, now()),
+         last_completed_at  = now()
+   where user_id = v_uid and video_id = p_video_id
+  returning pending_exp, pending_bananas into v_pexp, v_pbananas;
+
+  return jsonb_build_object(
+    'first', v_first,
+    -- what is now waiting to be claimed
+    'exp', v_pexp, 'bananas', v_pbananas
+  );
+end;
+$$;
+
+-- 4. Pays out what is waiting (the "Claim rewards!" button). Pressing it twice pays once.
+create or replace function public.claim_video_reward(p_video_id bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_row public.video_progress%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'Log in to claim rewards.' using errcode = '28000';
+  end if;
+  select * into v_row from public.video_progress
+   where user_id = v_uid and video_id = p_video_id
+     for update;
+  if not found or (v_row.pending_exp = 0 and v_row.pending_bananas = 0) then
+    return jsonb_build_object('exp', 0, 'bananas', 0);
+  end if;
+
+  update public.video_progress
+     set pending_exp = 0, pending_bananas = 0
+   where user_id = v_uid and video_id = p_video_id;
+
+  -- protect_privileged_columns() would undo a change to coins/exp made on a
+  -- player's behalf, so this transaction says it is the rewarding function.
+  perform set_config('app.rewarding', 'on', true);
+  update public.profiles
+     set coins = coins + v_row.pending_bananas, exp = exp + v_row.pending_exp
+   where id = v_uid;
+  perform set_config('app.rewarding', 'off', true);
+
+  return jsonb_build_object('exp', v_row.pending_exp, 'bananas', v_row.pending_bananas);
+end;
+$$;
+
+-- 5. What Home needs to colour the pieces: the quizzes the player has
+--    finished at least once (results carried over from a guest count) and the
+--    videos they have finished.
+create or replace function public.get_my_progress()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'quizzes', coalesce((select jsonb_agg(qp.quiz_id)
+                           from public.quiz_players qp
+                          where qp.user_id = auth.uid() and qp.best_score is not null), '[]'::jsonb),
+    'videos',  coalesce((select jsonb_agg(vp.video_id)
+                           from public.video_progress vp
+                          where vp.user_id = auth.uid() and vp.completions > 0), '[]'::jsonb)
+  );
+$$;
+
+revoke execute on function public.finish_video(bigint) from public, anon;
+revoke execute on function public.claim_video_reward(bigint) from public, anon;
+revoke execute on function public.get_my_progress() from public, anon;
+grant  execute on function public.finish_video(bigint) to authenticated;
+grant  execute on function public.claim_video_reward(bigint) to authenticated;
+grant  execute on function public.get_my_progress() to authenticated;
+```
+
+Until it has been run: **CMS → Videos** shows the Rewards boxes switched off, the video page's **Next** simply returns to Home (nothing is saved or paid), and every piece on Home keeps its colour.
+
+## Guests: keep the results after signing up
+
+**Run this after the `quizzes: anonymous play + claiming rewards` and `podium talk: speech bubbles + CMS options` queries.** A guest's quiz results used to stay behind with the guest name. Now, the first time someone logs in on the browser they played in as a guest, `claim_guest_results(p_guest_id)` moves what that browser's guest played onto their account:
+
+- A quiz the account hadn't played: the guest's row simply becomes the account's. The score and the leaderboard place are kept (the guest name is replaced by the username), the quiz counts as finished on Home, and a speech bubble they picked from the podium comes along. Nothing is paid for it: guests earn no EXP or bananas, and the first-time reward is still there to earn the next time the quiz is played with the account.
+- A quiz the account had already played: the better of the two scores is kept, and the guest row is removed.
+
+The site calls it once after login and then forgets the guest id on that browser, so a later guest on a shared computer starts again as a new guest.
+
+**Save as:** `guests: carry results over to the account`
+
+Safe to re-run.
+
+```sql
+create or replace function public.claim_guest_results(p_guest_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid   uuid := auth.uid();
+  g       public.quiz_players%rowtype;
+  v_mine  public.quiz_players%rowtype;
+  v_count integer := 0;
+begin
+  if v_uid is null then
+    raise exception 'Log in to keep your results.' using errcode = '28000';
+  end if;
+  if p_guest_id is null then
+    return jsonb_build_object('quizzes', 0);
+  end if;
+
+  for g in
+    select * from public.quiz_players
+     where guest_id = p_guest_id and best_score is not null
+     order by id
+       for update
+  loop
+    select * into v_mine from public.quiz_players
+     where quiz_id = g.quiz_id and user_id = v_uid
+       for update;
+
+    if not found then
+      -- the account hasn't played this quiz: the guest's row becomes theirs
+      update public.quiz_players
+         set user_id = v_uid, guest_id = null, guest_name = null,
+             completions = 0, pending_exp = 0, pending_bananas = 0,
+             attempt_score = 0, attempt_answered = '{}', updated_at = now()
+       where id = g.id;
+    else
+      -- both played it: keep the better score
+      update public.quiz_players
+         set best_score = greatest(coalesce(best_score, 0), g.best_score),
+             talk_id = coalesce(talk_id, g.talk_id),
+             updated_at = now()
+       where id = v_mine.id;
+      delete from public.quiz_players where id = g.id;
+    end if;
+
+    v_count := v_count + 1;
+  end loop;
+
+  return jsonb_build_object('quizzes', v_count);
+end;
+$$;
+
+revoke execute on function public.claim_guest_results(uuid) from public, anon;
+grant  execute on function public.claim_guest_results(uuid) to authenticated;
+```
+
+Until it has been run: a guest's results stay under their guest name, as before, and signing up doesn't bring them along.
+
+## Profile: change username and display name (once a week)
+
+**Run this after the `quizzes: rewards + exp` and `signup: username checks` queries.** The Profile page lets a player change their **username** and their **display name** (the first and last name shown on their profile and in the Home greeting). Each can be changed **once every 7 days**, counted separately.
+
+The week is enforced in the database, not just on the page:
+
+- `profiles.username_changed_at` and `profiles.name_changed_at` (empty = never changed, so the first change is allowed straight away).
+- **New:** `change_username(p_username)` and `change_display_name(p_first_name, p_last_name)`. They answer with `ok`, and when it's `false` with a `reason`: `invalid`, `same`, `taken` (the username belongs to someone else; capitals don't matter) or `cooldown` (with `next_change_at`).
+- **Replaced:** `protect_privileged_columns()`. Besides coins, streak, role and EXP, it now also keeps `username`, `first_name`, `last_name` and the two timestamps from being changed straight through the API by a non-moderator; the two functions above are the only way (they set `app.profile_edit` for their own transaction). Moderators and the SQL Editor are unaffected, so **CMS → Users** keeps working. **Don't re-run the older `protect_privileged_columns` queries (in `profiles` or `quizzes: rewards + exp`) after this one.**
+
+**Save as:** `profiles: change username + display name`
+
+Safe to re-run.
+
+```sql
+-- 1. When each was last changed.
+alter table public.profiles add column if not exists username_changed_at timestamptz;
+alter table public.profiles add column if not exists name_changed_at     timestamptz;
+
+-- 2. Players can't change names through the API any more (only through the
+--    functions below). Same protection as coins/streak/role/exp.
+create or replace function public.protect_privileged_columns()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if auth.uid() is not null and not public.is_moderator() then
+    if coalesce(current_setting('app.rewarding', true), '') <> 'on' then
+      new.coins := old.coins;
+      new.streak_days := old.streak_days;
+      new.role := old.role;
+      new.exp := old.exp;
+    end if;
+    if coalesce(current_setting('app.profile_edit', true), '') <> 'on' then
+      new.username := old.username;
+      new.first_name := old.first_name;
+      new.last_name := old.last_name;
+      new.username_changed_at := old.username_changed_at;
+      new.name_changed_at := old.name_changed_at;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- 3. Change the username (3-24 letters, numbers or underscores; unique whatever the capitals).
+create or replace function public.change_username(p_username text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid  uuid := auth.uid();
+  v_name text := btrim(coalesce(p_username, ''));
+  v_row  public.profiles%rowtype;
+  v_next timestamptz;
+begin
+  if v_uid is null then
+    raise exception 'Log in to change your username.' using errcode = '28000';
+  end if;
+  select * into v_row from public.profiles where id = v_uid for update;
+  if not found then
+    raise exception 'Profile not found.' using errcode = 'P0002';
+  end if;
+
+  if v_name !~ '^[A-Za-z0-9_]{3,24}$' then
+    return jsonb_build_object('ok', false, 'reason', 'invalid');
+  end if;
+  if v_name = v_row.username then
+    return jsonb_build_object('ok', false, 'reason', 'same');
+  end if;
+
+  v_next := v_row.username_changed_at + interval '7 days';
+  if v_next is not null and v_next > now() then
+    return jsonb_build_object('ok', false, 'reason', 'cooldown', 'next_change_at', v_next);
+  end if;
+
+  if exists (select 1 from public.profiles p where lower(p.username) = lower(v_name) and p.id <> v_uid) then
+    return jsonb_build_object('ok', false, 'reason', 'taken');
+  end if;
+
+  perform set_config('app.profile_edit', 'on', true);
+  update public.profiles set username = v_name, username_changed_at = now() where id = v_uid;
+  perform set_config('app.profile_edit', 'off', true);
+
+  return jsonb_build_object('ok', true, 'username', v_name, 'next_change_at', now() + interval '7 days');
+exception
+  when unique_violation then
+    return jsonb_build_object('ok', false, 'reason', 'taken');
+end;
+$$;
+
+-- 4. Change the display name (first and last name, 1-40 characters each).
+create or replace function public.change_display_name(p_first_name text, p_last_name text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid   uuid := auth.uid();
+  v_first text := btrim(coalesce(p_first_name, ''));
+  v_last  text := btrim(coalesce(p_last_name, ''));
+  v_row   public.profiles%rowtype;
+  v_next  timestamptz;
+begin
+  if v_uid is null then
+    raise exception 'Log in to change your name.' using errcode = '28000';
+  end if;
+  select * into v_row from public.profiles where id = v_uid for update;
+  if not found then
+    raise exception 'Profile not found.' using errcode = 'P0002';
+  end if;
+
+  if v_first = '' or v_last = '' or char_length(v_first) > 40 or char_length(v_last) > 40 then
+    return jsonb_build_object('ok', false, 'reason', 'invalid');
+  end if;
+  if v_first = v_row.first_name and v_last = v_row.last_name then
+    return jsonb_build_object('ok', false, 'reason', 'same');
+  end if;
+
+  v_next := v_row.name_changed_at + interval '7 days';
+  if v_next is not null and v_next > now() then
+    return jsonb_build_object('ok', false, 'reason', 'cooldown', 'next_change_at', v_next);
+  end if;
+
+  perform set_config('app.profile_edit', 'on', true);
+  update public.profiles
+     set first_name = v_first, last_name = v_last, name_changed_at = now()
+   where id = v_uid;
+  perform set_config('app.profile_edit', 'off', true);
+
+  return jsonb_build_object('ok', true, 'first_name', v_first, 'last_name', v_last,
+                            'next_change_at', now() + interval '7 days');
+end;
+$$;
+
+revoke execute on function public.change_username(text) from public, anon;
+revoke execute on function public.change_display_name(text, text) from public, anon;
+grant  execute on function public.change_username(text) to authenticated;
+grant  execute on function public.change_display_name(text, text) to authenticated;
+```
+
+Until it has been run: the Profile page's two name boxes tell the player the change isn't available yet.
+
 ## Notes
 
 - Never expose the **service_role key** (Project Settings → API) anywhere client-side — it bypasses every RLS policy above. The **anon public key** already in `assets/js/supabase-client.js` is meant to be public.

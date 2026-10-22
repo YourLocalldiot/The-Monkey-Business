@@ -9,9 +9,15 @@
 // usernames and places.
 //
 // Guests: a quiz marked Anonymous in the CMS can be played without an account.
-// The browser keeps a random guest id and sends it with every call; the
-// database names the guest "Guest<n>". Guests earn no EXP or bananas, and at
-// the end are invited to create an account.
+// The browser keeps a random guest id (assets/js/guest.js) and sends it with
+// every call; the database names the guest "Guest<n>". Guests earn no EXP or
+// bananas, and at the end are invited to create an account; their results move
+// onto it when they log in on this browser.
+//
+// Leaving: a run in progress is lost if the page goes away. The tab being
+// closed, the page reloaded or navigated back asks first (the browser's own
+// message), the [x] and the language switch ask in the site's own dialog, and a
+// notification at the start of a run says so too.
 //
 // Leaderboard: whoever is in the top 3 (guest or not) can say something from
 // the podium: their own row gets a "Say something" button that opens a picker
@@ -39,8 +45,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     introReward: $('introReward'), introGuest: $('introGuest'),
     guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
-    lang: $('langBtn'), resultTop: $('resultTop'),
-    countdown: $('quizCountdown'), countdownNumber: $('countdownNumber')
+    resultTop: $('resultTop'),
+    countdown: $('quizCountdown'), countdownNumber: $('countdownNumber'), skip: $('skipCountdown')
   };
 
   var COUNTDOWN_FROM = 3;
@@ -50,31 +56,9 @@ document.addEventListener('DOMContentLoaded', async function () {
   var isGuest = false;
   var guestName = '';
 
-  // The random id a guest's browser keeps (the same one for every quiz).
-  function makeId() {
-    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      var r = Math.random() * 16 | 0;
-      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
-    });
-  }
-  var memoryGuestId = null;
-  function guestId() {
-    try {
-      var id = localStorage.getItem('tmbGuestId');
-      if (!/^[0-9a-f-]{36}$/i.test(id || '')) {
-        id = makeId();
-        localStorage.setItem('tmbGuestId', id);
-      }
-      return id;
-    } catch (e) {
-      return memoryGuestId || (memoryGuestId = makeId());
-    }
-  }
-
-  // Calls a database function; a guest's calls carry the guest id.
+  // Calls a database function; a guest's calls carry the guest id (assets/js/guest.js).
   function rpc(name, args) {
-    if (isGuest) args = Object.assign({ p_guest_id: guestId() }, args);
+    if (isGuest) args = Object.assign({ p_guest_id: window.Guest.id() }, args);
     return window.sb.rpc(name, args);
   }
 
@@ -86,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     page.dataset.state = state;
     el.intro.hidden = state !== 'intro';
     el.play.hidden = state !== 'play';
+    el.timer.hidden = state !== 'play';
     el.result.hidden = state !== 'result';
     el.stats.hidden = state === 'intro' || state === 'loading';
     el.start.hidden = state !== 'intro';
@@ -367,29 +352,23 @@ document.addEventListener('DOMContentLoaded', async function () {
   setState('intro');
   loadBoard('introBoard', 'introBoardEmpty');
 
-  // Guests have no Profile page to pick a language on, so the top bar has a
-  // switch: it shows the other language's code and name. Changing language
-  // reloads the page, which would throw away a quiz in progress, so that asks first.
-  if (isGuest) {
-    var other = I18N.lang === 'vi' ? 'en' : 'vi';
-    el.lang.textContent = other.toUpperCase();
-    el.lang.title = el.lang.ariaLabel = other === 'vi' ? 'Tiếng Việt' : 'English';
-    el.lang.hidden = false;
-    el.lang.addEventListener('click', async function () {
-      if (page.dataset.state === 'play') {
-        var change = await window.UI.confirm(I18N.t('quiz.lang.text'), {
-          title: I18N.t('quiz.lang.title'),
-          confirmLabel: I18N.t('quiz.lang.confirm'),
-          cancelLabel: I18N.t('quiz.leave.stay'),
-          danger: true
-        });
-        if (!change) return;
-      }
-      I18N.setLang(other);
-    });
+  // ---------- leaving ----------
+
+  // Once someone has said "Leave" in the site's dialog, the browser's own
+  // "Leave site?" message must not ask a second time.
+  var leaving = false;
+  function letGo() {
+    leaving = true;
+    setTimeout(function () { leaving = false; }, 4000);   // in case the page ends up staying
   }
 
-  // ---------- leaving ----------
+  // Closing the tab, reloading or going back in the middle of a run: the
+  // browser asks first (it doesn't allow pages to word that message).
+  window.addEventListener('beforeunload', function (event) {
+    if (leaving || page.dataset.state !== 'play') return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   // Leaving in the middle of a run asks first, in the site's own dialog.
   el.close.addEventListener('click', async function (event) {
@@ -401,8 +380,27 @@ document.addEventListener('DOMContentLoaded', async function () {
       cancelLabel: I18N.t('quiz.leave.stay'),
       danger: true
     });
-    if (leave) window.location.href = el.close.href;
+    if (leave) {
+      letGo();
+      window.location.href = el.close.href;
+    }
   });
+
+  // Changing language reloads the page, which would throw away a run in
+  // progress, so in the middle of one the language switch (assets/js/lang-switch.js) asks first.
+  if (window.LangSwitch) {
+    window.LangSwitch.beforeChange = async function () {
+      if (page.dataset.state !== 'play') return true;
+      var change = await window.UI.confirm(I18N.t('quiz.lang.text'), {
+        title: I18N.t('quiz.lang.title'),
+        confirmLabel: I18N.t('quiz.lang.confirm'),
+        cancelLabel: I18N.t('quiz.leave.stay'),
+        danger: true
+      });
+      if (change) letGo();
+      return change;
+    };
+  }
   el.again.addEventListener('click', function () { window.location.reload(); });
 
   // ---------- start: countdown, then the first question ----------
@@ -418,14 +416,27 @@ document.addEventListener('DOMContentLoaded', async function () {
     var loading = rpc('start_quiz', { p_quiz_id: quizId });
     var effectsReady = window.Effects.load();
 
-    for (var n = COUNTDOWN_FROM; n >= 1; n--) {
+    // "Skip" ends the countdown early (the questions are still waited for).
+    var skipped = false;
+    var skipPressed = new Promise(function (resolve) {
+      el.skip.disabled = false;
+      el.skip.onclick = function () {
+        skipped = true;
+        el.skip.disabled = true;
+        resolve();
+      };
+    });
+    el.skip.focus();
+
+    for (var n = COUNTDOWN_FROM; n >= 1 && !skipped; n--) {
       el.countdownNumber.textContent = n;
       // restart the pop animation for each number
       el.countdownNumber.style.animation = 'none';
       void el.countdownNumber.offsetWidth;
       el.countdownNumber.style.animation = '';
-      await wait(1000);
+      await Promise.race([wait(1000), skipPressed]);
     }
+    el.skip.onclick = null;
 
     var started = await loading;
     await effectsReady;
@@ -469,6 +480,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     el.title.textContent = quizName;
     setState('play');
     setStats(run.place, run.total, 0);
+    window.UI.toast(I18N.t('quiz.warn.toast'), { kind: 'info', title: I18N.t('quiz.warn.toastTitle'), duration: 7000 });
     showQuestion();
   }
 
@@ -479,6 +491,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   function showQuestion() {
     var q = run.questions[run.index];
+    window.scrollTo(0, 0);
     run.chosen = [];
     run.answered = false;
     run.pending = null;

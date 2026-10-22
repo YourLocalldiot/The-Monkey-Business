@@ -345,6 +345,19 @@ nav.primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .path-popup-action:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(58, 34, 8, .22); }
 .path-popup-action:focus-visible { outline: 3px solid #3a2208; outline-offset: 2px; }
 @media (max-width: 720px) { .path { --piece-size: 58px; --piece-pitch: 80px; } }
+/* Not finished yet: grey. Finished: in colour, with a tick (assets/js/home.js). */
+.path-piece.is-todo {
+  --piece: color-mix(in srgb, var(--ink) 14%, var(--surface));
+  --piece-edge: color-mix(in srgb, var(--ink) 28%, var(--surface));
+  color: color-mix(in srgb, var(--ink) 62%, var(--surface));
+}
+.path-piece.is-done::after {
+  content: "✓"; position: absolute; right: -5px; top: -5px; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--good); color: var(--surface); box-shadow: 0 0 0 2px var(--paper);
+  font-size: 13px; font-weight: 700; line-height: 1;
+}
+.path-popup-status { position: relative; margin-top: -8px; font-size: 13px; font-weight: 700; }
 
 /* ---------- Home: the current playlist box ---------- */
 .playlist-box { padding: 22px 26px; }
@@ -573,6 +586,19 @@ a.btn-primary { text-decoration: none; }
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-20);
 }
 
+/* Username and display name on the Profile page */
+.name-form { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.name-form + .name-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ink-20); }
+.name-form-title { font-size: 14.5px; font-weight: 700; }
+.name-form .field-row { flex-wrap: wrap; }
+.name-form .field-row .field { min-width: 160px; }
+.name-form input:disabled { opacity: .6; cursor: not-allowed; }
+.name-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.name-status { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-70); }
+.name-status.is-error { color: var(--bad); }
+.name-status.is-ok { color: var(--good); }
+.name-status[hidden] { display: none; }
+
 /* ---------- Auth pages (login / signup) ---------- */
 .auth-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
 .auth-shell { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
@@ -630,6 +656,8 @@ a.btn-primary { text-decoration: none; }
 .auth-message { text-align: center; font-size: 13px; font-weight: 600; color: var(--ink-70); margin-top: 16px; }
 .auth-message.is-error { color: var(--bad); }
 .auth-message.is-ok { color: var(--good); }
+.auth-note { margin: 0; font-size: 12.5px; line-height: 1.5; text-align: center; color: var(--ink-70); }
+.auth-note + .auth-note { margin-top: -6px; }
 
 .auth-switch {
   display: block; text-align: center; font-size: 13.5px; margin-top: 18px;
@@ -948,22 +976,55 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
   transition: background .15s ease;
 }
 .video-close:hover { background: var(--paper); }
-.quiz-lang {
-  width: 40px; height: 40px; flex: none; padding: 0; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink-20);
-  font-size: 12.5px; font-weight: 700; letter-spacing: .03em;
+/* ---------- Language switch (assets/js/lang-switch.js) ---------- */
+.lang-switch { font-family: var(--font-body); cursor: pointer; }
+.lang-switch-globe { display: inline-flex; flex: none; }
+.lang-switch-code { display: none; }
+/* a pill: the top bars of the quiz and video pages, and the login / sign-up pages */
+.lang-switch--pill {
+  height: 40px; flex: none; padding: 0 14px 0 11px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px; background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink-20);
+  font-size: 13.5px; font-weight: 700; line-height: 1; white-space: nowrap;
   transition: background .15s ease;
 }
-.quiz-lang:hover { background: var(--cream-soft); }
-.quiz-lang[hidden] { display: none; }
+.lang-switch--pill:hover { background: var(--cream-soft); }
+.lang-row { width: 100%; display: flex; justify-content: flex-end; }
+/* in the navigation sidebar: an item like the others */
+.lang-switch--nav { width: 100%; }
+.lang-switch--nav .lang-switch-globe { width: 28px; height: 28px; align-items: center; justify-content: center; }
+/* Where only icons fit (the collapsed sidebar, the tab bar on a phone): a round badge with the language's code. */
+.lang-switch--nav .lang-switch-code {
+  width: 30px; height: 30px; flex: none; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid currentColor;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; line-height: 1;
+}
+@media (min-width: 721px) {
+  html[data-sidebar="collapsed"] .lang-switch--nav .lang-switch-globe { display: none; }
+  html[data-sidebar="collapsed"] .lang-switch--nav .lang-switch-code { display: inline-flex; }
+}
+@media (max-width: 720px) {
+  .lang-switch--nav { width: auto; }
+  .lang-switch--nav .lang-switch-globe { display: none; }
+  .lang-switch--nav .lang-switch-code { display: inline-flex; }
+}
+/* While playing on a phone the top bar is crowded: the pill keeps just the code. */
+@media (max-width: 560px) {
+  .quiz-page[data-state="play"] .lang-switch--pill { padding: 0 11px 0 9px; gap: 6px; }
+  .quiz-page[data-state="play"] .lang-switch--pill .lang-switch-name { display: none; }
+  .quiz-page[data-state="play"] .lang-switch--pill .lang-switch-code { display: inline; }
+}
+@media (max-width: 360px) {
+  .quiz-page[data-state="play"] .lang-switch--pill .lang-switch-globe { display: none; }
+  .quiz-page[data-state="play"] .lang-switch--pill { padding: 0 10px; }
+}
 .video-title { flex: 1; min-width: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .video-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 20px; }
 /* A 16:9 box as large as fits between the two bars, never wider than the page. */
 .video-frame {
   position: relative; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
-  width: min(100%, 1100px, calc((100vh - 190px) * 16 / 9));
-  width: min(100%, 1100px, calc((100dvh - 190px) * 16 / 9));
+  width: min(100%, 1100px, calc((100vh - 250px) * 16 / 9));
+  width: min(100%, 1100px, calc((100dvh - 250px) * 16 / 9));
   background: var(--ink); border-radius: var(--radius-m); overflow: hidden; box-shadow: var(--shadow-lg);
 }
 .video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
@@ -981,11 +1042,20 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 }
 .video-next:hover { transform: translateY(-1px); }
 .video-next:active { transform: translateY(0); }
+/* The video page's bottom bar: what finishing pays, a hint, then the button(s). */
+.video-foot--stack { flex-direction: column; align-items: center; gap: 8px; }
+.video-foot--stack .video-next { flex: none; }
+.video-reward, .video-hint { max-width: 640px; margin: 0; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.4; color: var(--ink-70); overflow-wrap: anywhere; }
+.video-hint { color: var(--ink); }
+.video-reward[hidden], .video-hint[hidden] { display: none; }
 @media (max-height: 520px) {
   .video-bar { padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
   .video-stage { padding: 10px 20px; }
   .video-foot { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  .video-frame { width: min(100%, 1100px, calc((100vh - 130px) * 16 / 9)); width: min(100%, 1100px, calc((100dvh - 130px) * 16 / 9)); }
+  .video-frame { width: min(100%, 1100px, calc((100vh - 150px) * 16 / 9)); width: min(100%, 1100px, calc((100dvh - 150px) * 16 / 9)); }
+  /* short screens: the texts sit beside the button instead of above it */
+  .video-foot--stack { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+  .video-reward, .video-hint { flex: 1 1 220px; text-align: left; font-size: 13px; }
 }
 @media (max-width: 560px) {
   .video-stage { padding: 12px; }
@@ -1005,6 +1075,12 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-name { font-size: 26px; overflow-wrap: anywhere; }
 .quiz-desc { margin-top: 10px; color: var(--ink-70); white-space: pre-line; overflow-wrap: anywhere; }
 .quiz-meta { margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--ink-45); }
+
+/* The top bar and the timer under it stay pinned to the top, and the bottom bar
+   (the verdict and the Next / Submit button) to the bottom, however far the
+   question has to be scrolled on a small screen. */
+.quiz-top { position: sticky; top: 0; z-index: 30; }
+.quiz-page .video-foot { position: sticky; bottom: 0; z-index: 30; }
 
 /* Top bar while playing: rank, questions done, points. */
 .quiz-stats { display: flex; gap: 8px; flex: none; margin-left: auto; }
@@ -1075,7 +1151,12 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-board-empty { font-size: 14px; color: var(--ink-70); }
 
 /* Timer */
-.quiz-timer { display: flex; align-items: center; gap: 12px; }
+.quiz-timer {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px max(20px, env(safe-area-inset-right)) 8px max(20px, env(safe-area-inset-left));
+  background: var(--surface); border-bottom: 1.5px solid var(--ink-20); box-shadow: var(--shadow-sm);
+}
+.quiz-timer[hidden] { display: none; }
 .quiz-timer-track { flex: 1; height: 12px; border-radius: 999px; background: var(--ink-20); overflow: hidden; }
 .quiz-timer-fill { height: 100%; width: 100%; border-radius: 999px; background: var(--honey); transition: width .1s linear, background .2s ease; }
 .quiz-timer-fill.is-low { background: var(--bad); }
@@ -1140,6 +1221,8 @@ textarea.cms-grow { resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .quiz-claim { background: var(--honey); color: var(--honey-ink); }
 .quiz-reward-intro { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--cream-soft); border-radius: var(--radius-s); padding: 8px 12px; overflow-wrap: anywhere; }
 .quiz-reward-intro[hidden] { display: none; }
+.quiz-warn { margin-top: 10px; padding: 8px 12px; font-size: 13.5px; font-weight: 700; color: var(--ink-70); background: var(--paper); border-left: 4px solid var(--honey); border-radius: var(--radius-s); overflow-wrap: anywhere; }
+.quiz-countdown-skip { margin-top: 18px; min-width: 140px; justify-content: center; }
 .quiz-result-place { margin-top: 6px; font-weight: 700; color: var(--ink-70); }
 
 /* Bottom bar: one to three buttons depending on the stage. */
@@ -1166,7 +1249,7 @@ a.video-next { display: inline-flex; align-items: center; justify-content: cente
   /* Too narrow for the choices side by side: stack them, still sharing the lower half equally.
      The box grows with the number of choices so each one stays readable. */
   .quiz-options { grid-template-columns: 1fr; grid-template-rows: repeat(var(--n, 2), minmax(0, 1fr)); }
-  .quiz-play-card { min-height: calc(200px + var(--n, 4) * 120px); }
+  .quiz-play-card { min-height: calc(160px + var(--n, 4) * 96px); }
 }
 @media (max-width: 720px) {
   /* Playing: the boxes take the title's place in the bar. */
@@ -1175,15 +1258,47 @@ a.video-next { display: inline-flex; align-items: center; justify-content: cente
 @media (max-width: 560px) {
   .quiz-card { padding: 18px; }
   .quiz-name { font-size: 22px; }
-  .quiz-play-card { padding: 16px; }
   .quiz-result-score { font-size: 32px; }
+  /* A phone is too short to cut the box into two equal halves: the question,
+     then the choices, each as tall as it needs; the bars stay pinned. */
+  .quiz-stage { padding-top: 14px; }
+  .quiz-play-card { min-height: 0; padding: 14px; grid-template-rows: auto auto; align-content: start; gap: 14px; }
+  .quiz-question { justify-content: flex-start; overflow: visible; gap: 10px; }
+  .quiz-q-image { flex: none; width: auto; min-height: 0; max-height: 32vh; }
+  .quiz-q-prompt { font-size: clamp(18px, 5.4vw, 22px); }
+  .quiz-options { grid-template-rows: none; grid-auto-rows: minmax(54px, auto); gap: 10px; }
+  .quiz-option { overflow: visible; font-size: 16px; }
 }
 @media (max-width: 420px) {
   .video-bar { gap: 10px; }
   .quiz-page .video-bar { padding-left: 12px; padding-right: 12px; }
+  .quiz-timer { padding-left: 12px; padding-right: 12px; }
   .quiz-stats { gap: 6px; }
   .quiz-stat { min-width: 56px; padding: 4px 6px; }
   .quiz-stat-value { font-size: 15px; }
+}
+@media (max-width: 360px) {
+  .quiz-page .video-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .quiz-stats { gap: 4px; }
+  .quiz-stat { min-width: 46px; padding: 3px 4px; }
+  .quiz-stat-label { font-size: 9.5px; letter-spacing: .02em; }
+  .quiz-stat-value { font-size: 14px; }
+}
+/* A phone held sideways: little height, plenty of width. Choices go two by two,
+   and the bars shrink so the question has room. */
+@media (max-height: 520px) {
+  .quiz-timer { padding-top: 5px; padding-bottom: 5px; }
+  .quiz-foot { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); gap: 6px 12px; }
+  .quiz-foot .quiz-feedback { flex: 1 1 160px; text-align: left; }
+  .quiz-foot .video-next { flex: 0 1 220px; min-height: 44px; padding: 8px 20px; }
+}
+@media (max-height: 520px) and (min-width: 561px) {
+  .quiz-stage { padding-top: 12px; }
+  .quiz-play-card { min-height: 0; padding: 14px; grid-template-rows: auto auto; align-content: start; gap: 12px; }
+  .quiz-question { justify-content: flex-start; overflow: visible; }
+  .quiz-q-image { flex: none; width: auto; min-height: 0; max-height: 26vh; }
+  .quiz-options { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(48px, auto); }
+  .quiz-option { overflow: visible; }
 }
 
 /* ---------- Notifications (assets/js/ui.js) ---------- */

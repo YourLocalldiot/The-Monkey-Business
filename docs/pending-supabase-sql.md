@@ -4,15 +4,27 @@ The SQL snippets in [`supabase-sql.md`](supabase-sql.md) that have been written 
 
 This file is kept in step with `supabase-sql.md`: whenever a snippet is added there (or an existing one is changed in a way that needs re-running), it is listed here too. **You** are the one who confirms whether a snippet has been run; remove its entry from "Currently pending" once it has.
 
-*Last compared against the live database by Claude: 2026-10-11, with read-only queries (tables, columns, policies, functions, the `unaccent` extension, and whether the anonymous role can call `set_profile_moderator`). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
+*Last compared against the live database by Claude: 2026-10-22, with read-only queries (tables, columns and functions: the three snippets below are not in the database yet; podium talk is). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
 
 ## Currently pending
 
-### `podium talk: speech bubbles + CMS options`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Podium talk". Run it after `quiz leaderboard: top-3 emoji` (already applied).
-- **Why it's needed:** the speech bubble next to a top-3 player's name, and **CMS > Podium talk**, where moderators set which emojis or phrases a podium holder can choose. Adds the `podium_talk` table (seeded with the 24 emojis and four phrases), `quiz_players.talk_id`, `set_quiz_talk()` (replacing `set_quiz_emoji`), and makes `get_quiz_leaderboard` return `talk_id` / `talk` / `talk_vn`; carries over emojis already chosen, then drops `quiz_players.emoji`.
-- **Until it's run:** the leaderboard still shows the emojis chosen so far, but players can't pick a new one and the CMS Podium talk tab can't load.
-- **Added:** 2026-10-19.
+### `videos: rewards + finished videos`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Video rewards, and finished videos / quizzes (Home's coloured pieces)". Run it after `quizzes: anonymous play + claiming rewards`.
+- **Why it's needed:** the **Rewards** boxes in **CMS > Videos**, the video page's **Next** button (finishing a video, then **Claim rewards!**), and **Home's path**, where finished videos and quizzes are in colour and the rest grey. Adds `videos.reward_*`, the `video_progress` table, `finish_video()`, `claim_video_reward()` and `get_my_progress()`.
+- **Until it's run:** CMS > Videos shows the Rewards boxes switched off, **Next** on the video page just returns to Home (nothing is saved or paid), and every piece on Home keeps its colour.
+- **Added:** 2026-10-22.
+
+### `guests: carry results over to the account`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Guests: keep the results after signing up". Run it after `podium talk: speech bubbles + CMS options` (already applied).
+- **Why it's needed:** a guest's quiz results (score, leaderboard place, finished quizzes) move onto their account the first time they log in on that browser. Adds `claim_guest_results()`.
+- **Until it's run:** a guest's results stay under their guest name; signing up doesn't bring them along.
+- **Added:** 2026-10-22.
+
+### `profiles: change username + display name`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Profile: change username and display name (once a week)". Run it after `signup: username checks` (already applied).
+- **Why it's needed:** the two name boxes on the Profile page, each changeable once every 7 days. Adds `profiles.username_changed_at` / `name_changed_at`, `change_username()`, `change_display_name()`, and replaces `protect_privileged_columns()` so names can't be changed around the weekly limit.
+- **Until it's run:** the Profile page's name boxes say the change isn't available yet.
+- **Added:** 2026-10-22.
 
 ## Applied
 
@@ -34,6 +46,7 @@ As of the comparison above (plus what you confirmed, and a read-only check of th
 | `quizzes: rewards + exp` | `profiles.exp`, per-quiz rewards, finish_quiz paying out *(found in the live database 2026-10-18)* |
 | `quizzes: anonymous play + claiming rewards` | guests (Guest1...), pending rewards + claiming, the reward effect kind *(found in the live database 2026-10-18)* |
 | `quiz leaderboard: top-3 emoji` | `quiz_players.emoji`, `set_quiz_emoji()`, the leaderboard returning each top-3 player's emoji *(you confirmed 2026-10-18; also found in the live database)* |
+| `podium talk: speech bubbles + CMS options` | the `podium_talk` table, `quiz_players.talk_id`, `set_quiz_talk()`, the leaderboard returning each top-3 player's message *(found in the live database 2026-10-22)* |
 
 (That table is only a record of what the check found. It isn't a to-do list.)
 

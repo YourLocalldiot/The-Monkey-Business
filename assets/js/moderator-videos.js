@@ -1,6 +1,9 @@
 // CMS → Videos tab: the library of videos that playlists are built from.
-// A video here is just a name (English + Vietnamese) and a YouTube link;
-// the Playlists tab decides where each one is used.
+// A video here is a name (English + Vietnamese), a YouTube link and the
+// rewards for finishing it (EXP and bananas, the first time and on a rewatch);
+// the Playlists tab decides where each one is used. The reward columns come
+// with the video-rewards SQL in docs/supabase-sql.md; until it has been run
+// the Rewards boxes are switched off.
 (function () {
   var P = window.CMS;
   var el = P.el;
@@ -8,8 +11,12 @@
   // watch?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID
   var YOUTUBE = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#/].*)?$/i;
 
+  var REWARD_COLUMNS = ', reward_first_exp, reward_first_bananas, reward_repeat_exp, reward_repeat_bananas';
+  var DEFAULT_REWARDS = { first_exp: 40, first_bananas: 20, repeat_exp: 10, repeat_bananas: 5 };
+  var REWARD_MAX = 100000;
+
   function blankVideo() {
-    return { id: null, display_name_en: '', display_name_vn: '', youtube_link: '' };
+    return { id: null, display_name_en: '', display_name_vn: '', youtube_link: '', rewards: Object.assign({}, DEFAULT_REWARDS) };
   }
 
   P.register('videos', function (pane) {
@@ -31,13 +38,15 @@
             id: row.id,
             display_name_en: row.display_name_en || '',
             display_name_vn: row.display_name_vn || '',
-            youtube_link: row.youtube_link || ''
+            youtube_link: row.youtube_link || '',
+            rewards: rewardsOf(row)
           });
         }
       }
     });
 
     var videos = [];
+    var rewardsSupported = true;   // false until the video-rewards SQL has been run
     var selectedId = null;
     var editorToken = 0;
 
@@ -53,12 +62,23 @@
       }));
     }
 
+    function rewardsOf(row) {
+      if (!rewardsSupported) return Object.assign({}, DEFAULT_REWARDS);
+      return {
+        first_exp: row.reward_first_exp, first_bananas: row.reward_first_bananas,
+        repeat_exp: row.reward_repeat_exp, repeat_bananas: row.reward_repeat_bananas
+      };
+    }
+
     async function loadList() {
       md.setNote('Loading…');
-      var result = await window.sb
-        .from('videos')
-        .select('id, display_name_en, display_name_vn, youtube_link')
-        .order('id', { ascending: false });
+      var columns = 'id, display_name_en, display_name_vn, youtube_link';
+      rewardsSupported = true;
+      var result = await window.sb.from('videos').select(columns + REWARD_COLUMNS).order('id', { ascending: false });
+      if (result.error && result.error.code === '42703') {
+        rewardsSupported = false;
+        result = await window.sb.from('videos').select(columns).order('id', { ascending: false });
+      }
       if (result.error) {
         md.setNote(P.errorText(result.error), true);
         return;
@@ -103,6 +123,19 @@
         oninput: function () { state.youtube_link = link.value; changed(); }
       });
 
+      // ----- rewards -----
+      function rewardField(key, label) {
+        var input = el('input', {
+          type: 'number', min: 0, max: REWARD_MAX, step: 1, inputmode: 'numeric',
+          value: String(state.rewards[key]), disabled: !rewardsSupported,
+          oninput: function () {
+            state.rewards[key] = input.value === '' ? NaN : Number(input.value);
+            changed();
+          }
+        });
+        return P.field(label, input);
+      }
+
       var usage = el('p', { class: 'cms-editor-sub', hidden: isNew });
       if (!isNew) {
         usage.textContent = 'Checking where it is used…';
@@ -129,6 +162,12 @@
           link.focus();
           return 'Paste a YouTube link, like https://www.youtube.com/watch?v=… or https://youtu.be/…';
         }
+        if (rewardsSupported && Object.keys(state.rewards).some(function (k) {
+          var v = state.rewards[k];
+          return !(Number.isInteger(v) && v >= 0 && v <= REWARD_MAX);
+        })) {
+          return 'The EXP and banana rewards must be whole numbers from 0 to ' + REWARD_MAX + '.';
+        }
         return '';
       }
 
@@ -147,6 +186,12 @@
           display_name_vn: state.display_name_vn.trim() || null,
           youtube_link: youtube
         };
+        if (rewardsSupported) {
+          values.reward_first_exp = state.rewards.first_exp;
+          values.reward_first_bananas = state.rewards.first_bananas;
+          values.reward_repeat_exp = state.rewards.repeat_exp;
+          values.reward_repeat_bananas = state.rewards.repeat_bananas;
+        }
 
         P.status(statusEl, 'Saving…');
         var result = await P.withBusy([saveBtn, deleteBtn], function () {
@@ -172,7 +217,8 @@
           id: id,
           display_name_en: saved ? saved.display_name_en || '' : values.display_name_en,
           display_name_vn: saved ? saved.display_name_vn || '' : '',
-          youtube_link: saved ? saved.youtube_link || '' : values.youtube_link
+          youtube_link: saved ? saved.youtube_link || '' : values.youtube_link,
+          rewards: saved ? rewardsOf(saved) : Object.assign({}, state.rewards)
         }, 'Saved.');
       }
 
@@ -209,6 +255,22 @@
           P.field('Name (English)', nameEn),
           P.field('Name (Vietnamese)', nameVn)),
         P.field('YouTube link', link),
+        el('section', { class: 'cms-section' },
+          el('div', { class: 'cms-section-head' },
+            el('div', { class: 'cms-section-title' },
+              el('h3', { text: 'Rewards' }),
+              el('span', { class: 'cms-hint', text: 'Paid when a player watches the video to the end' })),
+            rewardsSupported ? null : el('span', { class: 'cms-hint', text: 'Needs a database update (docs/pending-supabase-sql.md)' })),
+          el('div', { class: 'cms-reward-group' },
+            el('strong', { class: 'cms-reward-title', text: 'The first time a player finishes this video' }),
+            el('div', { class: 'field-row' },
+              rewardField('first_exp', 'EXP'),
+              rewardField('first_bananas', 'Bananas'))),
+          el('div', { class: 'cms-reward-group' },
+            el('strong', { class: 'cms-reward-title', text: 'Every time after that (paid at most once a day)' }),
+            el('div', { class: 'field-row' },
+              rewardField('repeat_exp', 'EXP'),
+              rewardField('repeat_bananas', 'Bananas')))),
         el('div', { class: 'cms-actions' }, saveBtn, statusEl, deleteBtn)));
 
       if (message) P.status(statusEl, message, 'ok');

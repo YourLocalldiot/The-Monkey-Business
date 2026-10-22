@@ -21,8 +21,10 @@
   </script>
   <script src="assets/js/theme.js" defer></script>
   <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/lang-switch.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/effects.js" defer></script>
   <script src="assets/js/video.js" defer></script>
 </head>
 <body class="video-body">
@@ -43,9 +45,14 @@
     </div>
   </main>
 
-  <!-- Bottom bar: "Next" is centred under the player (what it does comes later). -->
-  <footer class="video-foot">
+  <!-- Bottom bar: what finishing the video pays, a hint while it is unfinished,
+       and "Next" (assets/js/video.js); after it, "Claim rewards!" and "Back to Home". -->
+  <footer class="video-foot video-foot--stack">
+    <p class="video-reward" id="videoReward" hidden></p>
+    <p class="video-hint" id="videoHint" role="status" hidden></p>
     <button type="button" class="video-next" id="videoNext" data-i18n="video.next">Next</button>
+    <button type="button" class="video-next quiz-claim" id="videoClaim" data-i18n="quiz.claim" hidden>Claim rewards!</button>
+    <a class="video-next quiz-home" id="videoHome" href="index.html" data-i18n="quiz.back" hidden>Back to Home</a>
   </footer>
 </div>
 

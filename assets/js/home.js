@@ -14,6 +14,11 @@
 // path. Pressing a piece opens a small box with its name and a button to
 // open it: a video opens on the watch page (video.html), a quiz on the quiz
 // page (quiz.html).
+//
+// A piece is grey until the player has finished it (a quiz played to the end,
+// a video watched to the end) and in colour afterwards, with a tick on it.
+// Which ones are done comes from get_my_progress() (docs/supabase-sql.md);
+// without it every piece keeps its colour.
 
 // How far each piece sits from the centre line, in piece widths, for a
 // curve of 5, 4 or 3 pieces. Every curve starts and ends on the centre line.
@@ -126,17 +131,27 @@ document.addEventListener('DOMContentLoaded', async function () {
     title.className = 'path-popup-title';
     title.textContent = item.name;
 
+    var status = null;
+    if (item.done !== null) {
+      status = document.createElement('p');
+      status.className = 'path-popup-status';
+      status.textContent = (item.done ? '✓ ' : '') + I18N.t(item.done ? 'home.path.statusDone' : 'home.path.statusTodo');
+    }
+
     var action = document.createElement('button');
     action.type = 'button';
     action.className = 'path-popup-action';
     action.dataset.itemType = item.type;
     action.dataset.itemId = item.refId;
-    action.textContent = I18N.t(isQuiz ? 'home.path.playQuiz' : 'home.path.watchVideo');
+    action.textContent = I18N.t(isQuiz
+      ? (item.done ? 'quiz.again' : 'home.path.playQuiz')
+      : (item.done ? 'home.path.watchAgain' : 'home.path.watchVideo'));
     action.addEventListener('click', function () {
       window.location.href = (isQuiz ? 'quiz.html?id=' : 'video.html?id=') + encodeURIComponent(item.refId);
     });
 
     popup.appendChild(title);
+    if (status) popup.appendChild(status);
     popup.appendChild(action);
     piece.parentNode.insertBefore(popup, piece.nextSibling);   // keeps tab order sensible
     openPiece = piece;
@@ -174,7 +189,9 @@ document.addEventListener('DOMContentLoaded', async function () {
       piece.className = 'path-piece ' + item.type;
       piece.style.setProperty('--row', index);
       piece.style.setProperty('--off', offsets[index]);
-      piece.setAttribute('aria-label', I18N.t(item.type === 'quiz' ? 'type.quiz' : 'type.video') + ': ' + item.name);
+      if (item.done !== null) piece.classList.add(item.done ? 'is-done' : 'is-todo');
+      piece.setAttribute('aria-label', I18N.t(item.type === 'quiz' ? 'type.quiz' : 'type.video') + ': ' + item.name +
+        (item.done === null ? '' : ' (' + I18N.t(item.done ? 'home.path.statusDone' : 'home.path.statusTodo') + ')'));
       piece.setAttribute('aria-expanded', 'false');
       piece.innerHTML = PIECE_ICONS[item.type];
       piece.addEventListener('click', function () {
@@ -287,6 +304,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     return;
   }
 
+  // Which quizzes and videos this player has finished. Without the SQL (or if
+  // the call fails) nothing is marked: every piece keeps its colour.
+  var progress = null;
+  var progressResult = await window.sb.rpc('get_my_progress');
+  if (progressResult.error) {
+    if (progressResult.error.code !== 'PGRST202') console.error('home.js: could not load your progress', progressResult.error);
+  } else if (progressResult.data) {
+    progress = {
+      quiz: new Set((progressResult.data.quizzes || []).map(Number)),
+      video: new Set((progressResult.data.videos || []).map(Number))
+    };
+  }
+
   playlists = (result.data || [])
     .filter(function (row) { return row.playlists; })
     .map(function (row) {
@@ -300,9 +330,11 @@ document.addEventListener('DOMContentLoaded', async function () {
             var isQuiz = entry.item_type === 'quiz';
             var target = isQuiz ? entry.quizzes : entry.videos;
             if (!target) return null;
+            var refId = isQuiz ? entry.quiz_id : entry.video_id;
             return {
               type: entry.item_type,
-              refId: isQuiz ? entry.quiz_id : entry.video_id,
+              refId: refId,
+              done: progress ? progress[isQuiz ? 'quiz' : 'video'].has(Number(refId)) : null,
               name: (isQuiz
                 ? I18N.pick(target.display_name_vn, target.display_name)
                 : I18N.pick(target.display_name_vn, target.display_name_en)) || I18N.t('home.untitledItem')
@@ -317,4 +349,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     return;
   }
   render();
+
+  // Coming back with the Back button shows the page as it was: a piece finished
+  // in the meantime would still be grey, so load it again.
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) window.location.reload();
+  });
 });

@@ -21,6 +21,7 @@
   </script>
   <script src="assets/js/theme.js" defer></script>
   <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/lang-switch.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/auth-errors.js" defer></script>
@@ -80,6 +81,8 @@
         </div>
       </label>
       <button type="submit" class="btn-primary auth-submit" data-i18n="auth.signup">Sign up</button>
+      <p class="auth-note" data-i18n="signup.mailHint">We'll email you a link to confirm your account. Can't find it? Check your Spam and Trash folders too.</p>
+      <p class="auth-note" data-i18n="signup.privacy">We only use your name and email to run your account. We don't sell your information or share it with advertisers. A full privacy policy is coming soon.</p>
     </form>
 
     <p class="auth-message" role="alert" hidden></p>

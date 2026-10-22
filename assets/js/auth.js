@@ -18,6 +18,23 @@ document.addEventListener('DOMContentLoaded', function () {
     if (statCoins) statCoins.textContent = I18N.number(coins || 0);
   }
 
+  // Someone who played quizzes as a guest on this browser keeps their results
+  // once they are logged in (docs/supabase-sql.md, "Guests: keep the results
+  // after signing up"). Done once per page; the notification says how many.
+  var carryStarted = false;
+  function keepGuestResults() {
+    if (carryStarted || !window.Guest || !window.Guest.peek()) return;
+    carryStarted = true;
+    window.Guest.carryOver().then(function (count) {
+      if (!(count > 0) || !window.UI) return;
+      window.UI.toast(I18N.t(count === 1 ? 'guest.carried.one' : 'guest.carried.many', { count: I18N.number(count) }), {
+        kind: 'success',
+        title: I18N.t('guest.carried.title'),
+        duration: 9000
+      });
+    });
+  }
+
   function setGreeting(firstName) {
     if (!bubble) return;
     // Built with text nodes, not innerHTML, so a name can never be
@@ -47,6 +64,8 @@ document.addEventListener('DOMContentLoaded', function () {
       setStats(0, 0);
       return;
     }
+
+    keepGuestResults();
 
     var columns = 'role, first_name, coins, streak_days';
     var result = await window.sb

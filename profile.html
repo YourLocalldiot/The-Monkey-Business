@@ -22,8 +22,10 @@
   </script>
   <script src="assets/js/theme.js" defer></script>
   <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/lang-switch.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="assets/js/supabase-client.js" defer></script>
+  <script src="assets/js/guest.js" defer></script>
   <script src="assets/js/auth.js" defer></script>
   <script src="assets/js/profile.js" defer></script>
 </head>
@@ -102,6 +104,43 @@
                 <p class="meta-text" id="profileUsername"></p>
               </div>
             </div>
+          </section>
+
+          <!-- Username and display name, each changeable once a week.
+               assets/js/profile.js shows this once the database has the SQL for it. -->
+          <section class="card" id="namesCard" hidden>
+            <div class="trail-head"><h2 data-i18n="profile.names">Your names</h2></div>
+
+            <form class="name-form" id="usernameForm" novalidate>
+              <h3 class="name-form-title" data-i18n="signup.username">Username</h3>
+              <label class="field">
+                <input type="text" name="username" aria-label="Username" data-i18n-aria-label="signup.username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" required>
+                <span class="field-hint" data-i18n="profile.username.hint">3–24 characters: letters, numbers, underscores only. You can change your username once a week.</span>
+              </label>
+              <div class="name-actions">
+                <button type="submit" class="btn-primary" data-i18n="profile.username.save">Change username</button>
+                <p class="name-status" role="status" hidden></p>
+              </div>
+            </form>
+
+            <form class="name-form" id="displayForm" novalidate>
+              <h3 class="name-form-title" data-i18n="profile.display.title">Display name</h3>
+              <div class="field-row">
+                <label class="field">
+                  <span data-i18n="signup.first">First name</span>
+                  <input type="text" name="first_name" autocomplete="given-name" maxlength="40" required>
+                </label>
+                <label class="field">
+                  <span data-i18n="signup.last">Last name</span>
+                  <input type="text" name="last_name" autocomplete="family-name" maxlength="40" required>
+                </label>
+              </div>
+              <span class="field-hint" data-i18n="profile.display.hint">Your display name is shown on your profile and in the greeting on Home. You can change it once a week.</span>
+              <div class="name-actions">
+                <button type="submit" class="btn-primary" data-i18n="profile.display.save">Change display name</button>
+                <p class="name-status" role="status" hidden></p>
+              </div>
+            </form>
           </section>
 
           <section class="card">
