@@ -213,7 +213,7 @@
       }
 
       md.editor.appendChild(el('h2', { class: 'cms-editor-title', text: isNew ? 'New effect' : 'Edit effect' }));
-      md.editor.appendChild(el('p', { class: 'cms-editor-sub', text: 'Plays on the whole screen in a quiz: a Correct or Incorrect effect each time a player picks a right or a wrong answer, a Reward effect when they press Claim rewards (a banana is used if there is none). With several effects of the same type, one is picked at random.' }));
+      md.editor.appendChild(el('p', { class: 'cms-editor-sub', text: 'Plays on the whole screen in a quiz: a Correct or Incorrect effect each time a player picks a right or a wrong answer (or runs out of time without answering, which counts as wrong), a Reward effect when they press Claim rewards (a banana is used if there is none). With several effects of the same type, one is picked at random.' }));
       md.editor.appendChild(el('form', { class: 'cms-form', novalidate: true, onsubmit: onSubmit },
         el('div', { class: 'field-row' },
           P.field('Type', kind),

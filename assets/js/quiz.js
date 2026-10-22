@@ -641,9 +641,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     run.total = graded.total;
     setStats(graded.place, graded.total, graded.score);
 
-    // A right or a wrong pick flashes the effect of that kind (a timeout
-    // with nothing picked doesn't).
-    if (p.ids.length > 0) window.Effects.play(window.Effects.pick(graded.correct ? 'correct' : 'incorrect'));
+    // A right answer flashes the correct effect; a wrong one, or none given
+    // before the time ran out, flashes the incorrect effect.
+    window.Effects.play(window.Effects.pick(graded.correct ? 'correct' : 'incorrect'));
 
     var last = run.index === run.questions.length - 1;
     setAction(I18N.t(last ? 'quiz.finish' : 'quiz.next'), false, function () {
