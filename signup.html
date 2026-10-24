@@ -26,6 +26,7 @@
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/auth-errors.js" defer></script>
   <script src="assets/js/password-toggle.js" defer></script>
+  <script src="assets/js/guest.js" defer></script>
   <script src="assets/js/signup.js" defer></script>
 </head>
 <body class="auth-body">
@@ -39,6 +40,8 @@
   <div class="auth-card">
     <h1 data-i18n="auth.signup">Sign up</h1>
     <p class="auth-sub" data-i18n="signup.sub">Start learning and earning banamoney today.</p>
+    <!-- Filled in by assets/js/signup.js for someone who has just played a quiz as a guest. -->
+    <p class="auth-guest-note" id="signupGuestNote" hidden></p>
 
     <form class="auth-form" action="#" method="post">
       <div class="field-row">

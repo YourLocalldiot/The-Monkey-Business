@@ -12,6 +12,12 @@
 //   - an invalid email, a too-weak password, too many attempts, sign-ups
 //     turned off, no connection, anything unexpected.
 //
+// Guests: someone who has just played a quiz as a guest arrives from the quiz's
+// "Create account as <name>" button with that name filled in (?name=...), and
+// the guest id this browser keeps goes along with the sign-up, so the database
+// moves their quiz results onto the new account as it is created (see
+// docs/supabase-sql.md, "Guests: their own name, ...").
+//
 // On success the user is sent to the login page (see login.js) and told to
 // log in; if Supabase happened to sign them in already, that is undone first.
 document.addEventListener('DOMContentLoaded', async function () {
@@ -91,6 +97,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
+  // The name a guest played under (the quiz's button sends it as ?name=, else the last one this browser used).
+  var guestId = window.Guest ? window.Guest.peek() : null;
+  var wantedName = new URLSearchParams(window.location.search).get('name') || '';
+  if (!USERNAME.test(wantedName) && guestId) wantedName = window.Guest.lastName();
+  if (USERNAME.test(wantedName)) {
+    form.username.value = wantedName;
+    if (guestId) {
+      var guestNote = document.getElementById('signupGuestNote');
+      guestNote.textContent = I18N.t('signup.guestNote', { name: wantedName });
+      guestNote.hidden = false;
+    }
+    form.username.dispatchEvent(new Event('blur'));   // is it still free?
+  }
+
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     if (submitting) return;
@@ -142,7 +162,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         email: email,
         password: password,
         options: {
-          data: { username: username, first_name: firstName, last_name: lastName },
+          data: Object.assign({ username: username, first_name: firstName, last_name: lastName }, guestId ? { guest_id: guestId } : {}),
           emailRedirectTo: window.location.origin + '/login.html'
         }
       });

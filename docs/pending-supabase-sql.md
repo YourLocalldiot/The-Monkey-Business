@@ -4,7 +4,7 @@ The SQL snippets in [`supabase-sql.md`](supabase-sql.md) that have been written 
 
 This file is kept in step with `supabase-sql.md`: whenever a snippet is added there (or an existing one is changed in a way that needs re-running), it is listed here too. **You** are the one who confirms whether a snippet has been run; remove its entry from "Currently pending" once it has.
 
-*Last compared against the live database by Claude: 2026-10-22, with read-only queries (tables, columns and functions: the three snippets below are not in the database yet; podium talk is). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
+*Last compared against the live database by Claude: 2026-10-24, with read-only queries (tables, columns and functions: the three snippets below are not in the database yet; podium talk is). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
 
 ## Currently pending
 
@@ -14,11 +14,12 @@ This file is kept in step with `supabase-sql.md`: whenever a snippet is added th
 - **Until it's run:** CMS > Videos shows the Rewards boxes switched off, **Next** on the video page just returns to Home (nothing is saved or paid), and every piece on Home keeps its colour.
 - **Added:** 2026-10-22.
 
-### `guests: carry results over to the account`
-- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Guests: keep the results after signing up". Run it after `podium talk: speech bubbles + CMS options` (already applied).
-- **Why it's needed:** a guest's quiz results (score, leaderboard place, finished quizzes) move onto their account the first time they log in on that browser. Adds `claim_guest_results()`.
-- **Until it's run:** a guest's results stay under their guest name; signing up doesn't bring them along.
-- **Added:** 2026-10-22.
+### `guests: own name + results kept with an account`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Guests: their own name, and results kept only with an account". Run it after `podium talk: speech bubbles + CMS options` (already applied). It replaces the earlier `guests: carry results over to the account` entry, which was never run.
+- **Why it's needed:** a guest chooses a name for each quiz (it can't be a real user's username or another guest's name in that quiz); after finishing they can **create an account with that name**, and their result moves onto it (also when they log in to an existing account on the same browser). Adds `guest_name_status()`, `claim_guest_results()`, and the helpers behind them, and replaces `start_quiz`, `get_quiz_leaderboard` and `handle_new_user`.
+- **Heads-up:** a guest result that is never claimed is deleted **24 hours** after the guest's last activity, and running this query deletes the guest results that are already older than that (the live database has 10 guest rows from before names existed).
+- **Until it's run:** guests are still named `Guest1`, `Guest2`, … and nothing is asked of them; signing up doesn't bring their results along.
+- **Added:** 2026-10-22, rewritten 2026-10-24.
 
 ### `profiles: change username + display name`
 - **Where:** [`supabase-sql.md`](supabase-sql.md), section "Profile: change username and display name (once a week)". Run it after `signup: username checks` (already applied).

@@ -3451,53 +3451,160 @@ grant  execute on function public.get_my_progress() to authenticated;
 
 Until it has been run: **CMS → Videos** shows the Rewards boxes switched off, the video page's **Next** simply returns to Home (nothing is saved or paid), and every piece on Home keeps its colour.
 
-## Guests: keep the results after signing up
+## Guests: their own name, and results kept only with an account
 
-**Run this after the `quizzes: anonymous play + claiming rewards` and `podium talk: speech bubbles + CMS options` queries.** A guest's quiz results used to stay behind with the guest name. Now, the first time someone logs in on the browser they played in as a guest, `claim_guest_results(p_guest_id)` moves what that browser's guest played onto their account:
+**Run this after the `quizzes: anonymous play + claiming rewards` and `podium talk: speech bubbles + CMS options` queries.** Three things change for guests (people playing an Anonymous quiz without an account):
 
-- A quiz the account hadn't played: the guest's row simply becomes the account's. The score and the leaderboard place are kept (the guest name is replaced by the username), the quiz counts as finished on Home, and a speech bubble they picked from the podium comes along. Nothing is paid for it: guests earn no EXP or bananas, and the first-time reward is still there to earn the next time the quiz is played with the account.
-- A quiz the account had already played: the better of the two scores is kept, and the guest row is removed.
+1. **A guest chooses their own name for each quiz** (before **Start quiz**), instead of being given `Guest1`, `Guest2`, … The name follows the same rules as a username (3 to 24 letters, numbers or underscores). It must be **free**: not the username of any real user, and not the name of another guest in the same quiz (capitals don't matter). Otherwise the guest has to choose another one. `guest_name_status()` answers the quiz page while they type, and `start_quiz()` checks again when the run starts, so two guests can't take the same name at the same moment.
+2. **A guest's result is kept only if they make an account.** When they finish, the quiz page offers **Create account as <their name>**: the sign-up form opens with that name filled in and sends the guest id along, and the database moves what that browser played onto the new account while the account is created (`handle_new_user`). So it works even if the confirmation email is opened on another device. Logging in to an account that already exists on the same browser moves it too (`claim_guest_results`, called by the site after login). For each quiz the account hadn't played, the guest's row becomes the account's (score, leaderboard place, "finished" on Home, a podium speech bubble); where both played, the better score is kept. Nothing is paid for it: guests earn no EXP or bananas, and the first-time reward is still there to earn the next time the quiz is played with the account.
+3. **Otherwise the result is lost.** A guest result that is not claimed is deleted **24 hours after the guest's last activity** (the name is freed too). It disappears from the leaderboard straight away once it is that old, and is deleted for good whenever anyone starts a quiz. The 24 hours are set in `guest_keep_for()`. **Running this query also deletes the guest results that are already older than that**, which is how the existing `Guest…` rows go.
 
-The site calls it once after login and then forgets the guest id on that browser, so a later guest on a shared computer starts again as a new guest.
+What it changes:
 
-**Save as:** `guests: carry results over to the account`
+- **New:** `guest_name_status(p_quiz_id, p_guest_id, p_name)` (the guest's current name in this quiz, and whether a typed name is `invalid` or `taken`), and the internal helpers `guest_keep_for()`, `purge_guest_results()`, `guest_name_problem()` and `move_guest_results()`; a unique index so a quiz can't have two guests with the same name.
+- **Replaced:** `start_quiz` (new last argument `p_guest_name`; a guest must give a name the first time, and can give a new one later to rename themselves), `get_quiz_leaderboard` (hides expired guest results), `handle_new_user` (moves a guest's results when the sign-up carries a `guest_id`; a problem there never stops the account from being created) and `claim_guest_results`.
 
-Safe to re-run.
+**Save as:** `guests: own name + results kept with an account`
+
+Safe to re-run. It drops the previous `start_quiz` first, because the API can't choose between two functions with the same name. **Don't re-run the older `start_quiz` or `handle_new_user` queries after this one.**
 
 ```sql
-create or replace function public.claim_guest_results(p_guest_id uuid)
+-- =====================================================================
+-- Guests: a name of their own in each quiz, and results kept only when the
+-- guest makes an account.
+-- Run after the anonymous-play query and the podium-talk query.
+-- =====================================================================
+
+-- 1. How long a guest's result is kept when they never make an account.
+create or replace function public.guest_keep_for()
+returns interval
+language sql
+immutable
+as $$ select interval '24 hours' $$;
+
+create or replace function public.purge_guest_results()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.quiz_players
+   where guest_id is not null
+     and updated_at < now() - public.guest_keep_for();
+$$;
+
+create index if not exists quiz_players_guest_updated_idx
+  on public.quiz_players (updated_at) where guest_id is not null;
+
+-- The guest results that are already too old go now (this also frees their names).
+select public.purge_guest_results();
+
+-- 2. A quiz can't have two guests with the same name (capitals don't matter).
+do $$
+begin
+  if not exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'quiz_players_guest_name_key') then
+    if exists (
+      select 1 from public.quiz_players where guest_id is not null
+       group by quiz_id, lower(guest_name) having count(*) > 1
+    ) then
+      raise notice 'Skipped quiz_players_guest_name_key: two guests in a quiz share a name. Remove one of them, then run this again.';
+    else
+      create unique index quiz_players_guest_name_key
+        on public.quiz_players (quiz_id, lower(guest_name)) where guest_id is not null;
+    end if;
+  end if;
+end $$;
+
+-- 3. Why a name can't be used, or null when it can: 'invalid' (not 3-24
+--    letters, numbers or underscores) or 'taken' (a real user's username, or
+--    another guest's name in the same quiz; a guest's own name doesn't count).
+create or replace function public.guest_name_problem(p_quiz_id bigint, p_guest_id uuid, p_name text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_name is null or p_name !~ '^[A-Za-z0-9_]{3,24}$' then 'invalid'
+    when exists (select 1 from public.profiles pr where lower(pr.username) = lower(p_name)) then 'taken'
+    when exists (
+      select 1 from public.quiz_players qp
+       where qp.quiz_id = p_quiz_id
+         and qp.guest_id is not null
+         and qp.guest_id is distinct from p_guest_id
+         and lower(qp.guest_name) = lower(p_name)
+         and qp.updated_at >= now() - public.guest_keep_for()
+    ) then 'taken'
+    else null
+  end;
+$$;
+
+-- What the quiz page asks: this guest's name in the quiz so far (null if none),
+-- and, when a name is given, whether it can be used.
+create or replace function public.guest_name_status(p_quiz_id bigint, p_guest_id uuid default null, p_name text default null)
 returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_current text;
+  v_name    text := btrim(coalesce(p_name, ''));
+  v_problem text;
+begin
+  perform public.quiz_for_play(p_quiz_id);
+  if auth.uid() is not null or p_guest_id is null then
+    return jsonb_build_object('current', null, 'problem', null);
+  end if;
+
+  select qp.guest_name into v_current
+    from public.quiz_players qp
+   where qp.quiz_id = p_quiz_id and qp.guest_id = p_guest_id
+     and qp.updated_at >= now() - public.guest_keep_for();
+
+  if v_name <> '' then
+    v_problem := public.guest_name_problem(p_quiz_id, p_guest_id, v_name);
+  end if;
+  return jsonb_build_object('current', v_current, 'problem', v_problem);
+end;
+$$;
+
+-- 4. Moves what a guest played onto an account: a quiz the account hadn't
+--    played becomes theirs (score, place, "finished", podium talk); where both
+--    played, the better score is kept. Returns how many quizzes were moved.
+create or replace function public.move_guest_results(p_user uuid, p_guest_id uuid)
+returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_uid   uuid := auth.uid();
   g       public.quiz_players%rowtype;
   v_mine  public.quiz_players%rowtype;
   v_count integer := 0;
 begin
-  if v_uid is null then
-    raise exception 'Log in to keep your results.' using errcode = '28000';
-  end if;
-  if p_guest_id is null then
-    return jsonb_build_object('quizzes', 0);
+  if p_user is null or p_guest_id is null then
+    return 0;
   end if;
 
   for g in
     select * from public.quiz_players
-     where guest_id = p_guest_id and best_score is not null
+     where guest_id = p_guest_id
+       and best_score is not null
+       and updated_at >= now() - public.guest_keep_for()
      order by id
        for update
   loop
     select * into v_mine from public.quiz_players
-     where quiz_id = g.quiz_id and user_id = v_uid
+     where quiz_id = g.quiz_id and user_id = p_user
        for update;
 
     if not found then
       -- the account hasn't played this quiz: the guest's row becomes theirs
       update public.quiz_players
-         set user_id = v_uid, guest_id = null, guest_name = null,
+         set user_id = p_user, guest_id = null, guest_name = null,
              completions = 0, pending_exp = 0, pending_bananas = 0,
              attempt_score = 0, attempt_answered = '{}', updated_at = now()
        where id = g.id;
@@ -3514,15 +3621,212 @@ begin
     v_count := v_count + 1;
   end loop;
 
-  return jsonb_build_object('quizzes', v_count);
+  return v_count;
 end;
 $$;
 
+-- After login: move what this browser's guest played onto the account.
+create or replace function public.claim_guest_results(p_guest_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Log in to keep your results.' using errcode = '28000';
+  end if;
+  return jsonb_build_object('quizzes', public.move_guest_results(auth.uid(), p_guest_id));
+end;
+$$;
+
+-- 5. New accounts: when the sign-up carries a guest_id, the guest's results
+--    move onto the new account right away (so it works whichever device the
+--    confirmation email is opened on). A problem there never stops the account
+--    from being created.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_guest uuid;
+begin
+  insert into public.profiles (id, username, first_name, last_name, coins, streak_days, language)
+  values (
+    new.id,
+    new.raw_user_meta_data ->> 'username',
+    coalesce(new.raw_user_meta_data ->> 'first_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'last_name', ''),
+    0,
+    0,
+    'vi'
+  );
+
+  begin
+    v_guest := nullif(new.raw_user_meta_data ->> 'guest_id', '')::uuid;
+    if v_guest is not null then
+      perform public.move_guest_results(new.id, v_guest);
+    end if;
+  exception when others then
+    null;
+  end;
+
+  return new;
+end;
+$$;
+
+-- 6. Starts a run. A guest gives a name the first time (and may give a new one
+--    later to rename themselves); it has to be free, see guest_name_problem().
+drop function if exists public.start_quiz(bigint, uuid);
+
+create or replace function public.start_quiz(p_quiz_id bigint, p_guest_id uuid default null, p_guest_name text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid       uuid := auth.uid();
+  v_quiz      public.quizzes%rowtype;
+  v_questions jsonb;
+  v_pid       bigint;
+  v_name      text;
+  v_wanted    text := btrim(coalesce(p_guest_name, ''));
+  v_problem   text;
+  v_place     integer;
+  v_total     integer;
+begin
+  perform public.purge_guest_results();
+  v_quiz := public.quiz_for_play(p_quiz_id);
+  if v_uid is null and p_guest_id is null then
+    raise exception 'Log in to play this quiz.' using errcode = '28000';
+  end if;
+
+  select coalesce(jsonb_agg(
+           jsonb_build_object(
+             'id', qq.id,
+             'prompt', qq.prompt,
+             'prompt_vn', qq.prompt_vn,
+             'image_url', qq.image_url,
+             'time_limit_seconds', coalesce(qq.time_limit_seconds, 30),
+             'multiple', (select count(*) from public.quiz_options o where o.question_id = qq.id and o.is_correct) > 1,
+             'options', (select coalesce(jsonb_agg(
+                           jsonb_build_object('id', o.id, 'text', o.option_text, 'text_vn', o.option_text_vn)
+                           order by o.position, o.id), '[]'::jsonb)
+                         from public.quiz_options o where o.question_id = qq.id)
+           ) order by qq.position, qq.id), '[]'::jsonb)
+    into v_questions
+    from public.quiz_questions qq
+   where qq.quiz_id = p_quiz_id;
+
+  if jsonb_array_length(v_questions) = 0 then
+    raise exception 'This quiz has no questions yet.';
+  end if;
+
+  if v_uid is not null then
+    insert into public.quiz_players (quiz_id, user_id)
+    values (p_quiz_id, v_uid)
+    on conflict (quiz_id, user_id) where user_id is not null
+    do update set attempt_score = 0, attempt_answered = '{}', updated_at = now()
+    returning id into v_pid;
+  else
+    select qp.id, qp.guest_name into v_pid, v_name
+      from public.quiz_players qp
+     where qp.quiz_id = p_quiz_id and qp.guest_id = p_guest_id
+       for update;
+
+    if v_wanted = '' and v_pid is null then
+      raise exception 'Choose a name first.' using errcode = '22023';
+    end if;
+    if v_wanted <> '' and v_wanted is distinct from v_name then
+      v_problem := public.guest_name_problem(p_quiz_id, p_guest_id, v_wanted);
+      if v_problem = 'taken' then
+        raise exception 'That name is already taken.' using errcode = '23505';
+      elsif v_problem is not null then
+        raise exception 'That name can''t be used.' using errcode = '22023';
+      end if;
+      v_name := v_wanted;
+    end if;
+
+    if v_pid is null then
+      insert into public.quiz_players (quiz_id, guest_id, guest_name)
+      values (p_quiz_id, p_guest_id, v_name)
+      returning id into v_pid;
+    else
+      update public.quiz_players
+         set guest_name = v_name, attempt_score = 0, attempt_answered = '{}', updated_at = now()
+       where id = v_pid;
+    end if;
+  end if;
+
+  select r.place, r.total into v_place, v_total from public.quiz_rank(p_quiz_id, v_pid, 0) r;
+
+  return jsonb_build_object(
+    'shuffle_questions', v_quiz.shuffle_questions,
+    'shuffle_answers', v_quiz.shuffle_answers,
+    'questions', v_questions,
+    'place', v_place,
+    'total', v_total,
+    'guest', v_uid is null,
+    'guest_name', v_name
+  );
+end;
+$$;
+
+-- 7. The leaderboard no longer shows a guest result once it has expired.
+create or replace function public.get_quiz_leaderboard(p_quiz_id bigint, p_guest_id uuid default null)
+returns table (place integer, username text, is_me boolean, total integer, talk_id bigint, talk text, talk_vn text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_quiz public.quizzes%rowtype;
+  v_pid  bigint;
+begin
+  v_quiz := public.quiz_for_play(p_quiz_id);
+  v_pid := public.quiz_player_id(p_quiz_id, p_guest_id);
+  return query
+    with ranked as (
+      select qp.id as pid, qp.user_id as uid, qp.guest_name as gname,
+             pt.id as tid, pt.content as tk, pt.content_vn as tkv,
+             (rank() over (order by qp.best_score desc))::integer as plc,
+             (count(*) over ())::integer as tot
+        from public.quiz_players qp
+        left join public.podium_talk pt on pt.id = qp.talk_id
+       where qp.quiz_id = p_quiz_id and qp.best_score is not null
+         and (qp.guest_id is null or qp.updated_at >= now() - public.guest_keep_for())
+    )
+    -- what a player says is only shown while they are in the top 3
+    select r.plc, coalesce(pr.username, r.gname, '?'), coalesce(r.pid = v_pid, false), r.tot,
+           case when r.plc <= 3 then r.tid end,
+           case when r.plc <= 3 then r.tk end,
+           case when r.plc <= 3 then r.tkv end
+      from ranked r
+      left join public.profiles pr on pr.id = r.uid
+     where r.plc <= 10 or r.pid = v_pid
+     order by r.plc, 2;
+end;
+$$;
+
+revoke execute on function public.guest_keep_for() from public, anon, authenticated;
+revoke execute on function public.purge_guest_results() from public, anon, authenticated;
+revoke execute on function public.guest_name_problem(bigint, uuid, text) from public, anon, authenticated;
+revoke execute on function public.move_guest_results(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.guest_name_status(bigint, uuid, text) from public;
 revoke execute on function public.claim_guest_results(uuid) from public, anon;
+revoke execute on function public.start_quiz(bigint, uuid, text) from public;
+revoke execute on function public.get_quiz_leaderboard(bigint, uuid) from public;
+grant  execute on function public.guest_name_status(bigint, uuid, text) to anon, authenticated;
 grant  execute on function public.claim_guest_results(uuid) to authenticated;
+grant  execute on function public.start_quiz(bigint, uuid, text) to anon, authenticated;
+grant  execute on function public.get_quiz_leaderboard(bigint, uuid) to anon, authenticated;
 ```
 
-Until it has been run: a guest's results stay under their guest name, as before, and signing up doesn't bring them along.
+Until it has been run: guests are still given `Guest1`, `Guest2`, … (the quiz page notices the missing function and doesn't ask for a name), their results stay under those names, and signing up doesn't bring them along.
 
 ## Profile: change username and display name (once a week)
 

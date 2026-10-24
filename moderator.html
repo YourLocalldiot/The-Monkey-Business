@@ -120,37 +120,7 @@
         <section class="cms-pane" id="pane-effects" role="tabpanel" aria-labelledby="tab-effects" hidden></section>
         <section class="cms-pane" id="pane-podium" role="tabpanel" aria-labelledby="tab-podium" hidden></section>
 
-        <section class="cms-pane" id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
-          <div class="card cms-users">
-            <h2 class="cms-editor-title">Users</h2>
-            <p class="auth-sub">Look up a user by username to adjust their coins or streak.</p>
-
-            <form class="auth-form" id="lookupForm">
-              <label class="field">
-                <span>Username</span>
-                <input type="text" name="username" placeholder="khi_gioi_kinh_te" required>
-              </label>
-              <button type="submit" class="btn-primary auth-submit">Look up</button>
-            </form>
-
-            <div class="mod-result" id="modResult" hidden>
-              <p class="mod-user">Editing <strong id="modUsername"></strong></p>
-              <form class="auth-form" id="editForm">
-                <label class="field">
-                  <span>Currency (coins)</span>
-                  <input type="number" name="coins" min="0" step="1" required>
-                </label>
-                <label class="field">
-                  <span>Streak (days)</span>
-                  <input type="number" name="streak" min="0" step="1" required>
-                </label>
-                <button type="submit" class="btn-primary auth-submit">Save changes</button>
-              </form>
-            </div>
-
-            <p class="auth-message" id="usersMessage" role="status" hidden></p>
-          </div>
-        </section>
+        <section class="cms-pane" id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden></section>
       </div>
 
     </div>

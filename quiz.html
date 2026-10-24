@@ -73,6 +73,14 @@
         <p class="quiz-meta" id="introMeta"></p>
         <p class="quiz-reward-intro" id="introReward" hidden></p>
         <p class="quiz-guest-note" id="introGuest" data-i18n="quiz.guest.note" hidden>You're playing as a guest. Create an account to earn EXP and bananas.</p>
+        <!-- Guests only (assets/js/quiz.js): the name they will have on this quiz's leaderboard. -->
+        <form class="quiz-name-form" id="guestNameForm" novalidate hidden>
+          <label class="field">
+            <span data-i18n="quiz.name.label">Choose a name for this quiz</span>
+            <input type="text" id="guestName" name="guest_name" autocomplete="off" autocapitalize="off" spellcheck="false" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" required>
+            <span class="field-hint" id="guestNameHint" data-i18n="quiz.name.hint">3–24 characters: letters, numbers, underscores only. It shows on the leaderboard. To keep your result, create an account with this name afterwards.</span>
+          </label>
+        </form>
         <p class="quiz-warn" data-i18n="quiz.warn.intro">Once you press Start, don't leave this page: closing it or going back loses your progress.</p>
       </div>
       <div class="card quiz-card">
@@ -110,7 +118,7 @@
       <!-- Only for guests: an invitation to make an account. -->
       <div class="card quiz-card quiz-guest-card" id="guestCard" hidden>
         <h2 class="quiz-name" data-i18n="quiz.guest.title">Enjoyed the quiz?</h2>
-        <p class="quiz-desc" data-i18n="quiz.guest.text">Create an account to earn EXP and bananas. When you log in on this device, the results of the quizzes you played as a guest move to your account, so you keep your place on the leaderboards.</p>
+        <p class="quiz-desc" data-i18n="quiz.guest.text">Create an account to earn EXP and bananas and to keep your result and your place on the leaderboard. A guest result that isn't saved to an account is deleted after a day.</p>
         <p class="quiz-meta" id="guestPlayedAs"></p>
         <div class="quiz-guest-actions">
           <a class="btn-primary" id="guestCreate" href="signup.html" data-i18n="quiz.guest.create">Create account</a>

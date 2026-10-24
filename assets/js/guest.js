@@ -1,24 +1,30 @@
-// The id a guest's browser keeps, and what happens to a guest's results when
-// that browser logs in.
+// The id a guest's browser keeps, the name the guest last chose, and what
+// happens to a guest's results when that browser logs in.
 //
 // A guest plays an Anonymous quiz under a random id kept in localStorage
-// ('tmbGuestId'); the database names them Guest<n> (docs/supabase-sql.md,
-// "Quiz: anonymous play"). When someone logs in on that browser, carryOver()
+// ('tmbGuestId') and a name of their own for each quiz (docs/supabase-sql.md,
+// "Guests: their own name, ..."); the last name chosen is remembered so the
+// sign-up page can offer it. When someone logs in on that browser, carryOver()
 // asks the database to move what the guest played onto their account
-// (claim_guest_results, "Guests: keep the results after signing up") and then
-// forgets the id, so the next guest on a shared computer starts afresh.
+// (claim_guest_results) and then forgets the id, so the next guest on a shared
+// computer starts afresh. (Signing up does the same through the sign-up
+// itself: signup.js sends the id along.)
 //
 //   Guest.id()          the id, made the first time it's asked for
 //   Guest.peek()        the id if there is one (never makes one)
-//   Guest.forget()      throws the id away
+//   Guest.lastName()    the name the guest last chose ('' if none)
+//   Guest.setLastName(name)
+//   Guest.forget()      throws the id and the name away
 //   await Guest.carryOver()
 //                       signed-in only: how many quizzes were moved onto the
 //                       account (0 when there was nothing, or the database
 //                       doesn't have the function yet)
 (function () {
   var KEY = 'tmbGuestId';
+  var NAME_KEY = 'tmbGuestName';
   var UUID = /^[0-9a-f-]{36}$/i;
   var memoryId = null;   // for a browser whose localStorage can't be used
+  var memoryName = '';
   var running = null;
 
   function makeId() {
@@ -46,9 +52,22 @@
     return fresh;
   }
 
+  function lastName() {
+    try { return localStorage.getItem(NAME_KEY) || memoryName; } catch (e) { return memoryName; }
+  }
+
+  function setLastName(name) {
+    memoryName = String(name || '');
+    try { localStorage.setItem(NAME_KEY, memoryName); } catch (e) {}
+  }
+
   function forget() {
     memoryId = null;
-    try { localStorage.removeItem(KEY); } catch (e) {}
+    memoryName = '';
+    try {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(NAME_KEY);
+    } catch (e) {}
   }
 
   async function carryOver() {
@@ -75,5 +94,5 @@
     return running;
   }
 
-  window.Guest = { id: id, peek: peek, forget: forget, carryOver: carryOver };
+  window.Guest = { id: id, peek: peek, lastName: lastName, setLastName: setLastName, forget: forget, carryOver: carryOver };
 })();

@@ -10,9 +10,12 @@
 //
 // Guests: a quiz marked Anonymous in the CMS can be played without an account.
 // The browser keeps a random guest id (assets/js/guest.js) and sends it with
-// every call; the database names the guest "Guest<n>". Guests earn no EXP or
-// bananas, and at the end are invited to create an account; their results move
-// onto it when they log in on this browser.
+// every call. Before Start the guest chooses a name for this quiz: it follows
+// the rules of a username and has to be free (not a real user's username, not
+// another guest's name in this quiz), which the database checks. Guests earn no
+// EXP or bananas; at the end they are invited to create an account with the
+// same name, and only then is their result kept (it moves onto the account;
+// otherwise it is deleted a day after they last played).
 //
 // Leaving: a run in progress is lost if the page goes away. The tab being
 // closed, the page reloaded or navigated back asks first (the browser's own
@@ -43,7 +46,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     qOptions: $('qOptions'), qFeedback: $('qFeedback'),
     resultScore: $('resultScore'), resultPlace: $('resultPlace'),
     introReward: $('introReward'), introGuest: $('introGuest'),
-    guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'),
+    guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'), guestCreate: $('guestCreate'),
+    nameForm: $('guestNameForm'), nameInput: $('guestName'), nameHint: $('guestNameHint'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
     resultTop: $('resultTop'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber'), skip: $('skipCountdown')
@@ -348,6 +352,71 @@ document.addEventListener('DOMContentLoaded', async function () {
     el.introReward.hidden = false;
   }
 
+  // A guest chooses the name they will have on this quiz's leaderboard.
+  var NAME_FORMAT = /^[A-Za-z0-9_]{3,24}$/;
+  var namesOn = false;                       // the database lets guests choose a name
+  var nameHintText = el.nameHint.textContent;
+  var checked = { name: '', ok: false };     // the last name asked about, and the answer
+
+  function setNameHint(text, kind) {
+    el.nameHint.textContent = text || nameHintText;
+    el.nameHint.classList.toggle('is-error', kind === 'error');
+    el.nameHint.classList.toggle('is-ok', kind === 'ok');
+    el.nameInput.classList.toggle('is-invalid', kind === 'error');
+    if (kind === 'error') el.nameInput.setAttribute('aria-invalid', 'true');
+    else el.nameInput.removeAttribute('aria-invalid');
+  }
+
+  // true when the typed name can be used; otherwise says why, under the box.
+  async function checkName(focusIfBad) {
+    var name = el.nameInput.value.trim();
+    var problem = '';
+    if (!name) problem = I18N.t('quiz.name.required');
+    else if (!NAME_FORMAT.test(name)) problem = I18N.t('signup.usernameHint');
+    if (problem) {
+      setNameHint(problem, 'error');
+      if (focusIfBad) el.nameInput.focus();
+      return false;
+    }
+    if (checked.name === name) return checked.ok;
+
+    var status = await rpc('guest_name_status', { p_quiz_id: quizId, p_name: name });
+    if (el.nameInput.value.trim() !== name) return false;   // it was changed while asking
+    if (status.error || !status.data) {
+      console.error('quiz.js: could not check the name', status.error);
+      setNameHint(I18N.t('quiz.name.checkFail'), 'error');
+      return false;
+    }
+    checked = { name: name, ok: !status.data.problem };
+    if (status.data.problem === 'taken') setNameHint(I18N.t('quiz.name.taken'), 'error');
+    else if (status.data.problem) setNameHint(I18N.t('signup.usernameHint'), 'error');
+    else setNameHint(I18N.t('quiz.name.free'), 'ok');
+    if (status.data.problem && focusIfBad) el.nameInput.focus();
+    return !status.data.problem;
+  }
+
+  async function setUpGuestName() {
+    var status = await rpc('guest_name_status', { p_quiz_id: quizId });
+    // PGRST202: the database doesn't have the guest-names SQL yet; play as before.
+    if (status.error && status.error.code === 'PGRST202') return;
+    if (status.error) console.error('quiz.js: could not ask for the guest name', status.error);
+    namesOn = true;
+    el.nameInput.value = (status.data && status.data.current) || window.Guest.lastName() || '';
+    el.nameForm.hidden = false;
+    el.nameInput.addEventListener('input', function () {
+      checked = { name: '', ok: false };
+      setNameHint('', '');
+    });
+    el.nameInput.addEventListener('blur', function () {
+      if (NAME_FORMAT.test(el.nameInput.value.trim())) checkName(false);
+    });
+    el.nameForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      el.start.click();
+    });
+  }
+  if (isGuest) await setUpGuestName();
+
   showNote('');
   setState('intro');
   loadBoard('introBoard', 'introBoardEmpty');
@@ -409,11 +478,25 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   el.start.addEventListener('click', async function () {
     el.start.disabled = true;
+
+    // A guest needs a name that is free before anything starts.
+    var chosen = null;
+    if (namesOn) {
+      if (!(await checkName(true))) {
+        el.start.disabled = false;
+        return;
+      }
+      chosen = el.nameInput.value.trim();
+      window.Guest.setLastName(chosen);
+    }
+
     showNote('');
     el.countdown.hidden = false;
 
     // Fetch the questions (and the effects) while the countdown runs.
-    var loading = rpc('start_quiz', { p_quiz_id: quizId });
+    var startArgs = { p_quiz_id: quizId };
+    if (chosen) startArgs.p_guest_name = chosen;
+    var loading = rpc('start_quiz', startArgs);
     var effectsReady = window.Effects.load();
 
     // "Skip" ends the countdown early (the questions are still waited for).
@@ -442,6 +525,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     await effectsReady;
     el.countdown.hidden = true;
     el.start.disabled = false;
+    if (started.error && namesOn && (started.error.code === '23505' || started.error.code === '22023')) {
+      // someone took the name a moment ago, or it can't be used
+      checked = { name: '', ok: false };
+      setNameHint(I18N.t(started.error.code === '23505' ? 'quiz.name.taken' : 'signup.usernameHint'), 'error');
+      el.nameInput.focus();
+      return;
+    }
     if (started.error || !started.data) {
       console.error('quiz.js: could not start the quiz', started.error);
       showNote(failText(started.error, 'quiz.startFail'), true);
@@ -691,6 +781,11 @@ document.addEventListener('DOMContentLoaded', async function () {
       el.guestCard.hidden = false;
       el.guestPlayedAs.textContent = guestName ? I18N.t('quiz.guest.playedAs', { name: guestName }) : '';
       el.guestPlayedAs.hidden = !guestName;
+      // Making an account with the same name is how the result is kept.
+      el.guestCreate.href = 'signup.html' + (guestName ? '?name=' + encodeURIComponent(guestName) : '');
+      el.guestCreate.textContent = guestName
+        ? I18N.t('quiz.guest.createAs', { name: guestName })
+        : I18N.t('quiz.guest.create');
     } else {
       offerClaim({
         exp: Number(done.data.exp) || 0,

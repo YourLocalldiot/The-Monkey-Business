@@ -197,8 +197,9 @@
   };
 
   // The list-on-the-left / editor-on-the-right layout every content tab
-  // uses. Options: searchPlaceholder (+ optional longer searchLabel), newLabel,
-  // onSearch(text), onNew(), onSelect(id). Returns { search, editor, setItems, setNote }.
+  // uses. Options: searchPlaceholder (+ optional longer searchLabel), newLabel
+  // (no label = no New button), onSearch(text), onNew(), onSelect(id).
+  // Returns { search, editor, setItems, setNote }.
   CMS.masterDetail = function (pane, options) {
     var el = CMS.el;
 
@@ -210,11 +211,11 @@
       title: options.searchLabel || null,
       autocomplete: 'off'
     });
-    var newButton = el('button', {
+    var newButton = options.newLabel ? el('button', {
       type: 'button',
       class: 'btn-primary cms-new-btn',
       onclick: async function () { if (await CMS.confirmDiscard()) options.onNew(); }
-    }, CMS.icon('plus', 14), options.newLabel);
+    }, CMS.icon('plus', 14), options.newLabel) : null;
     var note = el('p', { class: 'cms-list-note', hidden: true });
     var list = el('ul', { class: 'cms-list' });
     var editor = el('section', { class: 'card cms-editor' });
