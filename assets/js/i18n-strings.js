@@ -39,6 +39,7 @@ window.TMB_STRINGS = {
     "social.facebook": "Facebook (opens in a new tab)",
     "social.instagram": "Instagram (opens in a new tab)",
     "social.tiktok": "TikTok (opens in a new tab)",
+    "social.youtube": "YouTube (opens in a new tab)",
     "social.github": "GitHub (opens in a new tab)",
 
     "type.video": "Video",
@@ -379,6 +380,7 @@ window.TMB_STRINGS = {
     "social.facebook": "Facebook (mở trong tab mới)",
     "social.instagram": "Instagram (mở trong tab mới)",
     "social.tiktok": "TikTok (mở trong tab mới)",
+    "social.youtube": "YouTube (mở trong tab mới)",
     "social.github": "GitHub (mở trong tab mới)",
 
     "type.video": "Video",
