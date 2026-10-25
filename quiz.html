@@ -26,6 +26,7 @@
   <script src="assets/js/supabase-client.js" defer></script>
   <script src="assets/js/guest.js" defer></script>
   <script src="assets/js/effects.js" defer></script>
+  <script src="assets/js/next-piece.js" defer></script>
   <script src="assets/js/quiz.js" defer></script>
 </head>
 <body class="video-body">
@@ -114,6 +115,8 @@
         <p class="quiz-result-score tnum" id="resultScore"></p>
         <p class="quiz-result-place" id="resultPlace"></p>
         <p class="quiz-top-hint" id="resultTop" hidden></p>
+        <!-- "Up next: ..." when the playlist has another piece (assets/js/next-piece.js). -->
+        <p class="quiz-next-hint" id="resultNext" hidden></p>
       </div>
       <!-- Only for guests: an invitation to make an account. -->
       <div class="card quiz-card quiz-guest-card" id="guestCard" hidden>
@@ -140,6 +143,7 @@
     <button type="button" class="video-next" id="actionBtn" hidden></button>
     <button type="button" class="video-next quiz-claim" id="claimBtn" data-i18n="quiz.claim" hidden>Claim rewards!</button>
     <button type="button" class="video-next" id="againBtn" data-i18n="quiz.again" hidden>Play again</button>
+    <a class="video-next quiz-continue" id="nextPieceBtn" data-i18n="piece.continue" hidden>Continue</a>
     <a class="video-next quiz-home" id="homeLink" href="index.html" data-i18n="quiz.back" hidden>Back to Home</a>
   </footer>
 

@@ -31,6 +31,10 @@
 // Rewards: for a signed-in player, finishing leaves EXP and bananas waiting;
 // the "Claim rewards!" button pays them (with the reward effect, then a
 // notification of what was received).
+//
+// Moving on: when the quiz is part of a playlist that has another piece after
+// it (assets/js/next-piece.js), the result screen says what is up next and
+// offers "Continue", which opens that piece.
 document.addEventListener('DOMContentLoaded', async function () {
   var $ = function (id) { return document.getElementById(id); };
   var page = $('quizPage');
@@ -49,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     guestCard: $('guestCard'), guestPlayedAs: $('guestPlayedAs'), guestCreate: $('guestCreate'),
     nameForm: $('guestNameForm'), nameInput: $('guestName'), nameHint: $('guestNameHint'),
     start: $('startBtn'), action: $('actionBtn'), again: $('againBtn'), home: $('homeLink'), claim: $('claimBtn'),
-    resultTop: $('resultTop'),
+    resultTop: $('resultTop'), resultNext: $('resultNext'), nextPiece: $('nextPieceBtn'),
     countdown: $('quizCountdown'), countdownNumber: $('countdownNumber'), skip: $('skipCountdown')
   };
 
@@ -59,6 +63,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   var run = null;   // the run in progress: questions, index, score ...
   var isGuest = false;
   var guestName = '';
+  var nextPiece = null;       // the piece after this one in the playlist: { type, id, name, url }
+  var claimPending = false;   // "Claim rewards!" hasn't been pressed yet
 
   // Calls a database function; a guest's calls carry the guest id (assets/js/guest.js).
   function rpc(name, args) {
@@ -82,6 +88,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     el.home.hidden = state !== 'result';
     el.claim.hidden = true;
     if (state !== 'play') el.action.hidden = true;
+    showNextPiece();
+  }
+
+  // "Continue" to the next piece of the playlist: on the result screen, once
+  // any reward has been claimed.
+  function showNextPiece() {
+    var onResult = page.dataset.state === 'result';
+    el.nextPiece.hidden = !(nextPiece && onResult && !claimPending);
+    el.resultNext.hidden = !(nextPiece && onResult);
+    if (nextPiece) {
+      el.nextPiece.href = nextPiece.url;
+      el.resultNext.textContent = window.NextPiece.label(nextPiece);
+    }
   }
 
   function showNote(text, isError) {
@@ -420,6 +439,14 @@ document.addEventListener('DOMContentLoaded', async function () {
   showNote('');
   setState('intro');
   loadBoard('introBoard', 'introBoardEmpty');
+
+  // The piece after this one in the playlist, for the end of the quiz.
+  if (window.NextPiece) {
+    window.NextPiece.find('quiz', quizId).then(function (next) {
+      nextPiece = next;
+      showNextPiece();
+    });
+  }
 
   // ---------- leaving ----------
 
@@ -810,6 +837,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (waiting.exp <= 0 && waiting.bananas <= 0) return;
     el.again.hidden = true;
     el.home.hidden = true;
+    claimPending = true;
+    showNextPiece();
     el.claim.hidden = false;
     el.claim.disabled = false;
     el.claim.onclick = async function () {
@@ -833,6 +862,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       el.claim.hidden = true;
       el.again.hidden = false;
       el.home.hidden = false;
+      claimPending = false;
+      showNextPiece();
       setTimeout(function () { notifyReward(paid); }, seconds * 1000);
     };
     el.claim.focus();

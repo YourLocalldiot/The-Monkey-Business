@@ -8,7 +8,12 @@
 // finished (finish_video, docs/supabase-sql.md), which colours its piece on
 // Home and leaves its EXP and bananas waiting; "Claim rewards!" then pays them,
 // with the reward effect and a notification, as for a quiz. A guest, or a
-// database without that SQL, gets a "Next" that simply goes back to Home.
+// database without that SQL, gets a "Next" that just moves on.
+//
+// Moving on: after finishing, the player goes to the next piece of the playlist
+// (assets/js/next-piece.js), or back to Home when this was the last one. With a
+// reward to claim, the claim comes first and then "Continue" (next piece) and
+// "Back to Home" are offered.
 //
 // The video is looked up in the videos table. Visitors can read a video that
 // sits in a playlist (see docs/supabase-sql.md), moderators any video.
@@ -22,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   var nextBtn = $('videoNext');
   var claimBtn = $('videoClaim');
   var homeLink = $('videoHome');
+  var continueBtn = $('videoContinue');
   if (!titleEl || !frame || !note || !nextBtn) return;
 
   // watch?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID
@@ -36,6 +42,13 @@ document.addEventListener('DOMContentLoaded', async function () {
   var tracking = false;   // a signed-in player, and the database can record finished videos
   var progress = null;    // their video_progress row, if any
   var unlocked = true;    // "Next" works (false while a tracked video is still being watched)
+  var nextPromise = Promise.resolve(null);   // the next piece of the playlist, once looked up
+
+  // On to the next piece of the playlist, or back to Home when there isn't one.
+  async function goNext() {
+    var next = await nextPromise;
+    window.location.href = next ? next.url : 'index.html';
+  }
 
   function showNote(text, isError) {
     note.textContent = text;
@@ -52,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   nextBtn.addEventListener('click', async function () {
     if (nextBtn.disabled) return;
     if (!tracking || !video) {
-      window.location.href = 'index.html';
+      await goNext();
       return;
     }
     nextBtn.disabled = true;
@@ -60,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     var done = await window.sb.rpc('finish_video', { p_video_id: video.id });
     if (done.error || !done.data) {
       if (done.error && MISSING.indexOf(done.error.code) !== -1) {
-        window.location.href = 'index.html';
+        await goNext();
         return;
       }
       console.error('video.js: could not finish the video', done.error);
@@ -74,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       first: !!done.data.first
     };
     if (waiting.exp <= 0 && waiting.bananas <= 0) {
-      window.location.href = 'index.html';
+      await goNext();
       return;
     }
     offerClaim(waiting);
@@ -120,7 +133,15 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
       claimBtn.hidden = true;
       homeLink.hidden = false;
-      homeLink.focus();
+      var next = await nextPromise;
+      if (next) {
+        continueBtn.href = next.url;
+        continueBtn.hidden = false;
+        setLine(rewardEl, window.NextPiece.label(next));
+        continueBtn.focus();
+      } else {
+        homeLink.focus();
+      }
       setTimeout(function () { notifyReward(paid); }, seconds * 1000);
     };
     claimBtn.focus();
@@ -163,6 +184,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     video = null;
     return;
   }
+
+  // The piece after this one in the playlist, for when the player has finished.
+  if (window.NextPiece) nextPromise = window.NextPiece.find('video', video.id);
 
   // ---- who is watching, and what finishing is worth to them ----
 

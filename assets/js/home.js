@@ -147,7 +147,9 @@ document.addEventListener('DOMContentLoaded', async function () {
       ? (item.done ? 'quiz.again' : 'home.path.playQuiz')
       : (item.done ? 'home.path.watchAgain' : 'home.path.watchVideo'));
     action.addEventListener('click', function () {
-      window.location.href = (isQuiz ? 'quiz.html?id=' : 'video.html?id=') + encodeURIComponent(item.refId);
+      // ?playlist= says which playlist it was opened from, so the piece knows what comes next
+      window.location.href = (isQuiz ? 'quiz.html?id=' : 'video.html?id=') + encodeURIComponent(item.refId) +
+        '&playlist=' + encodeURIComponent(playlists[0].id);
     });
 
     popup.appendChild(title);
