@@ -3828,6 +3828,8 @@ grant  execute on function public.get_quiz_leaderboard(bigint, uuid) to anon, au
 
 Until it has been run: guests are still given `Guest1`, `Guest2`, … (the quiz page notices the missing function and doesn't ask for a name), their results stay under those names, and signing up doesn't bring them along.
 
+> **Changed later:** an unclaimed guest result is no longer *deleted* after 24 hours; it is kept but expired, so moderators still see it (see "Quiz leaderboards for moderators: every player is kept" below). To the guest and on the public leaderboard it still disappears after a day.
+
 ## Profile: change username and display name (once a week)
 
 **Run this after the `quizzes: rewards + exp` and `signup: username checks` queries.** The Profile page lets a player change their **username** and their **display name** (the first and last name shown on their profile and in the Home greeting). Each can be changed **once every 7 days**, counted separately.
@@ -3975,6 +3977,295 @@ grant  execute on function public.change_display_name(text, text) to authenticat
 ```
 
 Until it has been run: the Profile page's two name boxes tell the player the change isn't available yet.
+
+## Quiz leaderboards for moderators: every player is kept
+
+**Run this after the `guests: own name + results kept with an account` query.** Two things:
+
+1. **Every quiz player is kept.** The quiz's list of players (`quiz_players`) has always held everybody who played; the public leaderboard just *shows* the top 10 (plus your own row), and without scores. What was being thrown away was the result of a **guest who never made an account**: after a day it was deleted. Now it is **kept but expired**: it disappears from the public leaderboard, its name becomes free again and it can no longer be claimed, but the row (name, score, when they played) stays in the database for moderators. (The cleanup function keeps its old name, `purge_guest_results()`, but archives instead of deleting.)
+2. **CMS → Quiz leaderboards.** A moderator picks a quiz and sees **all** its players with their **scores**: place, name (guests are tagged, expired guest results too), best score, how many times they finished it, and when they last played. Players who started but never finished are listed at the end. This needs two moderator-only functions, `admin_quiz_players()` and `admin_quiz_player_counts()`: anyone else calling them is refused.
+
+What it changes:
+
+- `quiz_players.expired` (new). The guest-name index now ignores expired results, so their names can be used again.
+- **Replaced:** `purge_guest_results` (archives), `guest_name_problem`, `move_guest_results`, `quiz_rank`, `get_quiz_intro` and `get_quiz_leaderboard` (each now ignores expired guest results, so places, totals, player counts and the leaderboard only count current players).
+- **New:** `admin_quiz_players(p_quiz_id)` and `admin_quiz_player_counts()`.
+
+**Guest results that were already deleted (guests who never made an account, up to now) cannot be brought back by this query.**
+
+**Save as:** `quizzes: keep every player + moderator leaderboards`
+
+Safe to re-run.
+
+```sql
+-- =====================================================================
+-- Keep every quiz player; moderator view of a quiz's full leaderboard.
+-- Run after the guests query.
+-- =====================================================================
+
+-- 1. A guest result that expires is kept (hidden), not deleted.
+alter table public.quiz_players add column if not exists expired boolean not null default false;
+
+-- The names of expired results are free again.
+drop index if exists public.quiz_players_guest_name_key;
+create unique index if not exists quiz_players_guest_name_key
+  on public.quiz_players (quiz_id, lower(guest_name)) where guest_id is not null and not expired;
+
+-- Expiring: the guest's id is swapped for a random one, so nobody can claim
+-- or continue the result any more; the row itself stays. (Name kept from the
+-- previous version, which deleted.)
+create or replace function public.purge_guest_results()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.quiz_players
+     set expired = true, guest_id = gen_random_uuid()
+   where guest_id is not null
+     and not expired
+     and updated_at < now() - public.guest_keep_for();
+$$;
+
+-- 2. Everything that looks at guests now ignores the expired ones.
+create or replace function public.guest_name_problem(p_quiz_id bigint, p_guest_id uuid, p_name text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_name is null or p_name !~ '^[A-Za-z0-9_]{3,24}$' then 'invalid'
+    when exists (select 1 from public.profiles pr where lower(pr.username) = lower(p_name)) then 'taken'
+    when exists (
+      select 1 from public.quiz_players qp
+       where qp.quiz_id = p_quiz_id
+         and qp.guest_id is not null
+         and not qp.expired
+         and qp.guest_id is distinct from p_guest_id
+         and lower(qp.guest_name) = lower(p_name)
+         and qp.updated_at >= now() - public.guest_keep_for()
+    ) then 'taken'
+    else null
+  end;
+$$;
+
+create or replace function public.move_guest_results(p_user uuid, p_guest_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  g       public.quiz_players%rowtype;
+  v_mine  public.quiz_players%rowtype;
+  v_count integer := 0;
+begin
+  if p_user is null or p_guest_id is null then
+    return 0;
+  end if;
+
+  for g in
+    select * from public.quiz_players
+     where guest_id = p_guest_id
+       and not expired
+       and best_score is not null
+       and updated_at >= now() - public.guest_keep_for()
+     order by id
+       for update
+  loop
+    select * into v_mine from public.quiz_players
+     where quiz_id = g.quiz_id and user_id = p_user
+       for update;
+
+    if not found then
+      -- the account hasn't played this quiz: the guest's row becomes theirs
+      update public.quiz_players
+         set user_id = p_user, guest_id = null, guest_name = null,
+             completions = 0, pending_exp = 0, pending_bananas = 0,
+             attempt_score = 0, attempt_answered = '{}', updated_at = now()
+       where id = g.id;
+    else
+      -- both played it: keep the better score
+      update public.quiz_players
+         set best_score = greatest(coalesce(best_score, 0), g.best_score),
+             talk_id = coalesce(talk_id, g.talk_id),
+             updated_at = now()
+       where id = v_mine.id;
+      delete from public.quiz_players where id = g.id;
+    end if;
+
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+-- Place of a score among the *other* current finished players: 1 + how many beat it;
+-- total = other finished players + you.
+create or replace function public.quiz_rank(p_quiz_id bigint, p_player_id bigint, p_score integer)
+returns table (place integer, total integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (1 + count(*) filter (where qp.best_score > p_score))::integer,
+         (count(*) + 1)::integer
+    from public.quiz_players qp
+   where qp.quiz_id = p_quiz_id
+     and qp.id <> p_player_id
+     and not qp.expired
+     and qp.best_score is not null;
+$$;
+
+-- What the quiz page shows before the quiz starts (the player count no longer
+-- includes expired guest results).
+create or replace function public.get_quiz_intro(p_quiz_id bigint, p_guest_id uuid default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_quiz  public.quizzes%rowtype;
+  v_pid   bigint;
+  v_done  integer;
+  v_first boolean;
+  v_guest boolean := auth.uid() is null;
+begin
+  v_quiz := public.quiz_for_play(p_quiz_id);
+  v_pid := public.quiz_player_id(p_quiz_id, p_guest_id);
+  if v_pid is not null then
+    select qp.completions into v_done from public.quiz_players qp where qp.id = v_pid;
+  end if;
+  v_first := coalesce(v_done, 0) = 0;
+  return jsonb_build_object(
+    'guest', v_guest,
+    -- guests earn nothing
+    'reward', case when v_guest then null else jsonb_build_object(
+      'first', v_first,
+      'exp', case when v_first then v_quiz.reward_first_exp else v_quiz.reward_repeat_exp end,
+      'bananas', case when v_first then v_quiz.reward_first_bananas else v_quiz.reward_repeat_bananas end
+    ) end,
+    'name', v_quiz.display_name,
+    'name_vn', v_quiz.display_name_vn,
+    'description', v_quiz.description,
+    'description_vn', v_quiz.description_vn,
+    'question_count', (select count(*) from public.quiz_questions qq where qq.quiz_id = p_quiz_id),
+    'player_count', (select count(*) from public.quiz_players qp
+                     where qp.quiz_id = p_quiz_id and qp.best_score is not null and not qp.expired)
+  );
+end;
+$$;
+
+-- The public leaderboard: the top 10 plus your own row, usernames and places only.
+create or replace function public.get_quiz_leaderboard(p_quiz_id bigint, p_guest_id uuid default null)
+returns table (place integer, username text, is_me boolean, total integer, talk_id bigint, talk text, talk_vn text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_quiz public.quizzes%rowtype;
+  v_pid  bigint;
+begin
+  v_quiz := public.quiz_for_play(p_quiz_id);
+  v_pid := public.quiz_player_id(p_quiz_id, p_guest_id);
+  return query
+    with ranked as (
+      select qp.id as pid, qp.user_id as uid, qp.guest_name as gname,
+             pt.id as tid, pt.content as tk, pt.content_vn as tkv,
+             (rank() over (order by qp.best_score desc))::integer as plc,
+             (count(*) over ())::integer as tot
+        from public.quiz_players qp
+        left join public.podium_talk pt on pt.id = qp.talk_id
+       where qp.quiz_id = p_quiz_id and qp.best_score is not null
+         and (qp.guest_id is null or (not qp.expired and qp.updated_at >= now() - public.guest_keep_for()))
+    )
+    -- what a player says is only shown while they are in the top 3
+    select r.plc, coalesce(pr.username, r.gname, '?'), coalesce(r.pid = v_pid, false), r.tot,
+           case when r.plc <= 3 then r.tid end,
+           case when r.plc <= 3 then r.tk end,
+           case when r.plc <= 3 then r.tkv end
+      from ranked r
+      left join public.profiles pr on pr.id = r.uid
+     where r.plc <= 10 or r.pid = v_pid
+     order by r.plc, 2;
+end;
+$$;
+
+-- 3. For moderators (CMS > Quiz leaderboards): every player of a quiz with
+--    their score. Place is among everybody who finished, guests whose result
+--    has expired included; players who never finished come last, without a place.
+create or replace function public.admin_quiz_players(p_quiz_id bigint)
+returns table (place integer, player text, is_guest boolean, score integer, completions integer,
+               expired boolean, first_played timestamptz, last_played timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can see this.' using errcode = '42501';
+  end if;
+  return query
+    select case when qp.best_score is not null
+                then (rank() over (order by qp.best_score desc nulls last))::integer end,
+           coalesce(pr.username, qp.guest_name, '?'),
+           qp.user_id is null,
+           qp.best_score,
+           qp.completions,
+           qp.expired,
+           qp.created_at,
+           qp.updated_at
+      from public.quiz_players qp
+      left join public.profiles pr on pr.id = qp.user_id
+     where qp.quiz_id = p_quiz_id
+     order by qp.best_score desc nulls last, qp.updated_at;
+end;
+$$;
+
+-- How many players each quiz has (for the list on the left of that page).
+create or replace function public.admin_quiz_player_counts()
+returns table (quiz_id bigint, players integer, finished integer, guests integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+begin
+  if not public.is_moderator() then
+    raise exception 'Only moderators can see this.' using errcode = '42501';
+  end if;
+  return query
+    select qp.quiz_id,
+           count(*)::integer,
+           (count(*) filter (where qp.best_score is not null))::integer,
+           (count(*) filter (where qp.user_id is null))::integer
+      from public.quiz_players qp
+     group by qp.quiz_id;
+end;
+$$;
+
+revoke execute on function public.admin_quiz_players(bigint) from public, anon;
+revoke execute on function public.admin_quiz_player_counts() from public, anon;
+grant  execute on function public.admin_quiz_players(bigint) to authenticated;
+grant  execute on function public.admin_quiz_player_counts() to authenticated;
+
+-- Guest results that are already too old are archived now.
+select public.purge_guest_results();
+```
+
+Until it has been run: guest results that expire are still **deleted** (by the cleanup that runs whenever someone starts a quiz), and **CMS → Quiz leaderboards** says the database is missing what it needs. Run it soon, so no more guest results are lost.
 
 ## Notes
 

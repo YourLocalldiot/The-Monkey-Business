@@ -4,11 +4,15 @@ The SQL snippets in [`supabase-sql.md`](supabase-sql.md) that have been written 
 
 This file is kept in step with `supabase-sql.md`: whenever a snippet is added there (or an existing one is changed in a way that needs re-running), it is listed here too. **You** are the one who confirms whether a snippet has been run; remove its entry from "Currently pending" once it has.
 
-*Last compared against the live database by Claude: 2026-10-24, with read-only queries (tables, columns, indexes and functions; all of the snippets below are in the database). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
+*Last compared against the live database by Claude: 2026-10-28, with read-only queries (the snippets under Applied are in the database; the one pending above is not). That was a snapshot, not a guarantee. Treat your own check as the source of truth.*
 
 ## Currently pending
 
-Nothing. Everything in `supabase-sql.md` has been run.
+### `quizzes: keep every player + moderator leaderboards`
+- **Where:** [`supabase-sql.md`](supabase-sql.md), section "Quiz leaderboards for moderators: every player is kept". Run it after `guests: own name + results kept with an account` (already applied).
+- **Why it's needed:** **CMS > Quiz leaderboards** (every player of a quiz with their score), and so that a guest result that expires is **kept** (hidden from the public leaderboard, name freed) instead of deleted. Adds `quiz_players.expired`, `admin_quiz_players()`, `admin_quiz_player_counts()`, and replaces `purge_guest_results`, `guest_name_problem`, `move_guest_results`, `quiz_rank`, `get_quiz_intro` and `get_quiz_leaderboard`.
+- **Until it's run:** guest results are still **deleted** a day after the guest last played (whenever anyone starts a quiz), and the CMS Quiz leaderboards tab says the database is missing something. Run it soon: guest results deleted before then can't be brought back.
+- **Added:** 2026-10-28.
 
 ## Applied
 
